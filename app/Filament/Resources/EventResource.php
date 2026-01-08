@@ -32,13 +32,27 @@ class EventResource extends Resource
                         )
                         ->required(),
 
+                    Forms\Components\Select::make('category')
+                        ->label('Kategorie')
+                        ->options([
+                            'kultura' => 'Kultura (Výstava, Hudba)',
+                            'gastro' => 'Gastro (Jídlo, Brunch)',
+                            'piti' => 'Pití (Bar, Degustace)',
+                        ])
+                        ->required()
+                        ->default('kultura'),
+
                     Forms\Components\TextInput::make('slug')
                         ->required()
                         ->unique(ignoreRecord: true),
                         
                     Forms\Components\DateTimePicker::make('start_at')
-                        ->label('Datum a čas konání')
+                        ->label('Začátek')
                         ->required(),
+
+                    Forms\Components\DateTimePicker::make('end_at') //
+                        ->label('Konec (nepovinné)')
+                        ->afterOrEqual('start_at'), 
                 ])->columns(2),
 
                 Forms\Components\Section::make('Obsah')->schema([

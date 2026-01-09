@@ -19,10 +19,10 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-users'; // Ikona uživatelů
-    protected static ?string $navigationGroup = 'HR & Provoz';     // <-- PŘESUNUTO
-    protected static ?string $navigationLabel = 'Zaměstnanci';     // <-- PŘEJMENOVÁNO
-    protected static ?int $navigationSort = 1;                     // Bude první v sekci
+    protected static ?string $navigationIcon = 'heroicon-o-users';
+    protected static ?string $navigationGroup = 'HR & Provoz';
+    protected static ?string $navigationLabel = 'Zaměstnanci';
+    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
@@ -53,23 +53,32 @@ class UserResource extends Resource
                             ->label('Heslo')
                             ->password()
                             ->dehydrateStateUsing(fn ($state) => Hash::make($state))
-                            ->dehydrated(fn ($state) => filled($state)) // Uloží se jen když je vyplněno
-                            ->required(fn (string $operation): bool => $operation === 'create'), // Povinné jen při zakládání
+                            ->dehydrated(fn ($state) => filled($state))
+                            ->required(fn (string $operation): bool => $operation === 'create'),
                     ])->columns(2),
 
                 // 2. SEKCE: HR & DOCHÁZKA
                 Section::make('HR & Nastavení Zaměstnance')
-                    ->description('Nastavení pro docházkový systém')
+                    ->description('Nastavení pozice, mzdy a přístupů')
                     ->schema([
                         TextInput::make('pin_code')
                             ->label('PIN Kód (4 číslice)')
                             ->numeric()
                             ->length(4)
-                            ->unique(ignoreRecord: true)
-                            ->password()
-                            ->revealable()
+                            ->password()     // Způsobí, že jsou vidět tečky ••••
+                            ->revealable()   // Přidá ikonku "oka" pro zobrazení
                             ->required()
                             ->helperText('Slouží pro rychlé přihlášení na tabletu.'),
+
+                        Select::make('employee_type')
+                            ->label('Oddělení / Pozice')
+                            ->options([
+                                'manager' => 'Management / Majitel',
+                                'kitchen' => 'Kuchyň',
+                                'floor' => 'Plac / Bar',
+                                'support' => 'Pomocný personál',
+                            ])
+                            ->required(),
 
                         Select::make('salary_type')
                             ->label('Typ Mzdy')
@@ -86,11 +95,16 @@ class UserResource extends Resource
                             ->prefix('Kč')
                             ->helperText('Cena za hodinu nebo za celou směnu.'),
 
+                        Toggle::make('is_manager')
+                            ->label('Je Manažer?')
+                            ->helperText('Manažer může schvalovat směny a vidí přehledy.')
+                            ->onColor('success')
+                            ->offColor('danger'),
+
                         Toggle::make('is_active')
                             ->label('Aktivní zaměstnanec')
                             ->default(true)
-                            ->helperText('Vypnutím zamezíte přihlášení do systému.')
-                            ->columnSpanFull(),
+                            ->helperText('Vypnutím zamezíte přihlášení do systému.'),
                     ])->columns(2),
             ]);
     }
@@ -104,34 +118,51 @@ class UserResource extends Resource
                     ->searchable()
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('email')
-                    ->label('E-mail')
-                    ->searchable(),
-
                 Tables\Columns\TextColumn::make('phone')
                     ->label('Telefon')
                     ->searchable(),
 
-                Tables\Columns\TextColumn::make('salary_type')
-                    ->label('Typ mzdy')
+                // Sloupec pro Pozici (Barevný štítek)
+                Tables\Columns\TextColumn::make('employee_type')
+                    ->label('Pozice')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        'hourly' => 'info',
-                        'fixed' => 'warning',
+                        'manager' => 'primary',
+                        'kitchen' => 'warning', // Oranžová
+                        'floor' => 'success',   // Zelená
+                        'support' => 'gray',    // Šedá
+                        default => 'gray',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
-                        'hourly' => 'Hodinová',
-                        'fixed' => 'Fixní',
+                        'manager' => 'Management',
+                        'kitchen' => 'Kuchyň',
+                        'floor' => 'Plac',
+                        'support' => 'Pomocná',
+                        default => $state,
                     }),
+
+                // Sloupec pro Manažera (Ikona)
+                Tables\Columns\IconColumn::make('is_manager')
+                    ->label('Manažer')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-shield-check')
+                    ->falseIcon('heroicon-o-user'),
 
                 Tables\Columns\IconColumn::make('is_active')
                     ->label('Aktivní')
                     ->boolean(),
             ])
             ->filters([
-                // Můžeme přidat filtr pro aktivní/neaktivní
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label('Jen aktivní'),
+                Tables\Filters\SelectFilter::make('employee_type')
+                    ->label('Oddělení')
+                    ->options([
+                        'manager' => 'Management / Majitel',
+                        'kitchen' => 'Kuchyň',
+                        'floor' => 'Plac / Bar',
+                        'support' => 'Pomocný',
+                    ]),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

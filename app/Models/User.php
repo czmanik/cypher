@@ -12,6 +12,12 @@ class User extends Authenticatable
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
+    // Konstanty pro typy zaměstnanců (aby se neudělal překlep)
+    const TYPE_KITCHEN = 'kitchen';
+    const TYPE_FLOOR = 'floor';
+    const TYPE_SUPPORT = 'support';
+    const TYPE_MANAGER = 'manager';
+
     /**
      * The attributes that are mass assignable.
      *
@@ -26,6 +32,8 @@ class User extends Authenticatable
         'salary_type',
         'hourly_rate',
         'is_active',
+        'is_manager',
+        'employee_type',
     ];
 
     /**
@@ -48,6 +56,21 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
+            'is_manager' => 'boolean', // <--- NOVÉ
+            'hourly_rate' => 'decimal:2',
         ];
+    }
+
+    // Helper pro hezký výpis pozice v češtině
+    public function getEmployeeTypeLabelAttribute(): string
+    {
+        return match($this->employee_type) {
+            self::TYPE_KITCHEN => 'Kuchyň',
+            self::TYPE_FLOOR => 'Plac / Bar',
+            self::TYPE_SUPPORT => 'Pomocný personál',
+            self::TYPE_MANAGER => 'Management',
+            default => 'Neurčeno',
+        };
     }
 }

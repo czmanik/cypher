@@ -17,6 +17,7 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Saade\FilamentFullCalendar\FilamentFullCalendarPlugin; 
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -38,7 +39,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
+                // Widgets\FilamentInfoWidget::class, // Můžeš zakomentovat, ať to tam nestraší
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -53,6 +54,12 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+            ])
+            
+            ->plugins([
+                FilamentFullCalendarPlugin::make()
+                    ->selectable() // Umožní kliknout do kalendáře pro vytvoření
+                    ->editable()   // Umožní přetahovat myší (Drag & Drop)
             ]);
     }
 }

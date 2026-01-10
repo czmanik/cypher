@@ -93,6 +93,7 @@ class ShiftCalendarWidget extends FullCalendarWidget
             // Time Slots Repeater for bulk creation
             Forms\Components\Repeater::make('time_slots')
                 ->label('Termíny')
+                ->cloneable(true) // FIX: Enable cloning for easy copy of time slots
                 ->schema([
                     Forms\Components\Grid::make(2)->schema([
                         Forms\Components\DateTimePicker::make('start_at')
@@ -187,7 +188,13 @@ class ShiftCalendarWidget extends FullCalendarWidget
             ->success()
             ->send();
 
-        $this->refreshEvents();
+        // FIX: Use proper event refreshing for FullCalendar v3
+        if (method_exists($this, 'refreshRecords')) {
+            $this->refreshRecords();
+        } else {
+             // Fallback dispatch if method doesn't exist (depending on version)
+             $this->dispatch('filament-fullcalendar:refresh');
+        }
     }
 
     /**
@@ -214,7 +221,12 @@ class ShiftCalendarWidget extends FullCalendarWidget
                 ])
                 ->action(function (array $data) {
                     $this->filterEmployeeType = $data['type'];
-                    $this->refreshEvents();
+                    // FIX: Refresh here too
+                    if (method_exists($this, 'refreshRecords')) {
+                        $this->refreshRecords();
+                    } else {
+                         $this->dispatch('filament-fullcalendar:refresh');
+                    }
                 }),
 
             // PUBLISH ACTION
@@ -237,12 +249,16 @@ class ShiftCalendarWidget extends FullCalendarWidget
                         ->update(['is_published' => true]);
 
                     Notification::make()->title('Směny zveřejněny')->success()->send();
-                    $this->refreshEvents();
+                    if (method_exists($this, 'refreshRecords')) {
+                        $this->refreshRecords();
+                    } else {
+                         $this->dispatch('filament-fullcalendar:refresh');
+                    }
                 }),
 
             Actions\CreateAction::make()
                 ->label('Nová směna')
-                ->model(PlannedShift::class) // FIX: Explicitly set the model!
+                ->model(PlannedShift::class)
                 ->form($this->getFormSchema())
                 ->mountUsing(fn (Forms\Form $form) => $form->fill([
                     'time_slots' => [ // Default one slot

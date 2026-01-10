@@ -70,6 +70,16 @@ class ShiftCalendarWidget extends FullCalendarWidget
             ->toArray();
     }
 
+    // FIX: Add this method to satisfy Livewire calls even if dispatched
+    public function refreshEvents(): void
+    {
+        if (method_exists($this, 'refreshRecords')) {
+            $this->refreshRecords();
+        } else {
+            $this->dispatch('filament-fullcalendar:refresh');
+        }
+    }
+
     public function getFormSchema(): array
     {
         return [
@@ -188,13 +198,8 @@ class ShiftCalendarWidget extends FullCalendarWidget
             ->success()
             ->send();
 
-        // FIX: Use proper event refreshing for FullCalendar v3
-        if (method_exists($this, 'refreshRecords')) {
-            $this->refreshRecords();
-        } else {
-             // Fallback dispatch if method doesn't exist (depending on version)
-             $this->dispatch('filament-fullcalendar:refresh');
-        }
+        // Use the wrapper method to be safe
+        $this->refreshEvents();
     }
 
     /**
@@ -221,12 +226,7 @@ class ShiftCalendarWidget extends FullCalendarWidget
                 ])
                 ->action(function (array $data) {
                     $this->filterEmployeeType = $data['type'];
-                    // FIX: Refresh here too
-                    if (method_exists($this, 'refreshRecords')) {
-                        $this->refreshRecords();
-                    } else {
-                         $this->dispatch('filament-fullcalendar:refresh');
-                    }
+                    $this->refreshEvents();
                 }),
 
             // PUBLISH ACTION
@@ -249,11 +249,7 @@ class ShiftCalendarWidget extends FullCalendarWidget
                         ->update(['is_published' => true]);
 
                     Notification::make()->title('Směny zveřejněny')->success()->send();
-                    if (method_exists($this, 'refreshRecords')) {
-                        $this->refreshRecords();
-                    } else {
-                         $this->dispatch('filament-fullcalendar:refresh');
-                    }
+                    $this->refreshEvents();
                 }),
 
             Actions\CreateAction::make()

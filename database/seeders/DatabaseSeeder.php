@@ -2,29 +2,38 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Schema; // Dulezite!
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        // Vypneme kontrolu cizich klicu, aby nezalezelo na poradi
+        Schema::disableForeignKeyConstraints();
 
         $this->call([
-        CategorySeeder::class, // Nejdřív kategorie
-        ProductSeeder::class,  // Pak produkty (potřebují kategorie)
-    ]);
+            UsersTableSeeder::class,
+            CategoriesTableSeeder::class,
+            TablesTableSeeder::class,
+            ProductsTableSeeder::class,
+            MenuItemsTableSeeder::class,
+            ChecklistTemplatesTableSeeder::class,
+            ContentBlocksTableSeeder::class,
+            PagesTableSeeder::class,
+            OpeningHoursTableSeeder::class,
+            
+            // Transakcni data (zavisla na tech nahore)
+            WorkShiftsTableSeeder::class,
+            PlannedShiftsTableSeeder::class,
+            EventsTableSeeder::class,
+            EventClaimsTableSeeder::class,
+            ReservationsTableSeeder::class,
+            ShiftChecklistResultsTableSeeder::class,
+            ShiftReportItemsTableSeeder::class,
+        ]);
+
+        // Zase ji zapneme
+        Schema::enableForeignKeyConstraints();
     }
 }

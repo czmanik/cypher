@@ -90,6 +90,29 @@ class ShiftCalendarWidget extends FullCalendarWidget
                 ->hidden(fn ($operation) => $operation === 'create') // Only for edit
                 ->disabled(),
 
+            // Time Slots Repeater for bulk creation
+            Forms\Components\Repeater::make('time_slots')
+                ->label('Termíny')
+                ->schema([
+                    Forms\Components\Grid::make(2)->schema([
+                        Forms\Components\DateTimePicker::make('start_at')
+                            ->label('Začátek')
+                            ->required()
+                            ->seconds(false)
+                            ->minutesStep(15),
+
+                        Forms\Components\DateTimePicker::make('end_at')
+                            ->label('Konec')
+                            ->required()
+                            ->seconds(false)
+                            ->minutesStep(15),
+                    ]),
+                ])
+                ->defaultItems(1)
+                ->addActionLabel('Přidat další termín')
+                ->hidden(fn ($operation) => $operation === 'edit'), // Only in Create mode
+
+            // Single date pickers for Edit mode (keep existing logic for simple edit)
             Forms\Components\Grid::make(2)->schema([
                 Forms\Components\DateTimePicker::make('start_at')
                     ->label('Začátek')
@@ -102,7 +125,7 @@ class ShiftCalendarWidget extends FullCalendarWidget
                     ->required()
                     ->seconds(false)
                     ->minutesStep(15),
-            ]),
+            ])->hidden(fn ($operation) => $operation === 'create'), // Only in Edit mode
 
             Forms\Components\Select::make('shift_role')
                 ->label('Pozice pro tuto směnu')
@@ -126,26 +149,37 @@ class ShiftCalendarWidget extends FullCalendarWidget
     }
 
     /**
-     * Override creation to handle multiple users
+     * Override creation to handle multiple users AND multiple time slots
      */
     public function createEvent(array $data): void
     {
         $userIds = $data['user_ids'] ?? [];
+        $timeSlots = $data['time_slots'] ?? [];
 
-        if (empty($userIds)) {
+        // Fallback for drag-and-drop creation (where time_slots might be empty but start_at exists)
+        if (empty($timeSlots) && isset($data['start_at']) && isset($data['end_at'])) {
+            $timeSlots = [[
+                'start_at' => $data['start_at'],
+                'end_at' => $data['end_at'],
+            ]];
+        }
+
+        if (empty($userIds) || empty($timeSlots)) {
              return;
         }
 
         foreach ($userIds as $userId) {
-            PlannedShift::create([
-                'user_id' => $userId,
-                'start_at' => $data['start_at'],
-                'end_at' => $data['end_at'],
-                'shift_role' => $data['shift_role'],
-                'note' => $data['note'],
-                'is_published' => $data['is_published'] ?? false,
-                'status' => 'pending',
-            ]);
+            foreach ($timeSlots as $slot) {
+                PlannedShift::create([
+                    'user_id' => $userId,
+                    'start_at' => $slot['start_at'],
+                    'end_at' => $slot['end_at'],
+                    'shift_role' => $data['shift_role'] ?? null,
+                    'note' => $data['note'] ?? null,
+                    'is_published' => $data['is_published'] ?? false,
+                    'status' => 'pending',
+                ]);
+            }
         }
 
         Notification::make()
@@ -208,10 +242,15 @@ class ShiftCalendarWidget extends FullCalendarWidget
 
             Actions\CreateAction::make()
                 ->label('Nová směna')
-                ->form($this->getFormSchema()) // Correctly reuse the schema!
+                ->model(PlannedShift::class) // FIX: Explicitly set the model!
+                ->form($this->getFormSchema())
                 ->mountUsing(fn (Forms\Form $form) => $form->fill([
-                    'start_at' => now()->setTime(8, 0),
-                    'end_at' => now()->setTime(16, 0),
+                    'time_slots' => [ // Default one slot
+                        [
+                            'start_at' => now()->setTime(8, 0),
+                            'end_at' => now()->setTime(16, 0),
+                        ]
+                    ],
                     'is_published' => true,
                 ]))
                 ->using(function (array $data, string $model) {

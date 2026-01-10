@@ -47,6 +47,13 @@
                 <div class="mt-8">
                     {!! $event->description !!}
                 </div>
+
+                <div class="mt-8">
+                    {{-- Zobrazit formulář jen pro komerční akce --}}
+                    @if($event->is_commercial)
+                        <livewire:event-claim-form :event="$event" />
+                    @endif
+                </div>
             </div>
 
             <div class="mt-12 pt-8 border-t border-gray-200 flex justify-between items-center">

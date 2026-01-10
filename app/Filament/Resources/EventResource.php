@@ -9,6 +9,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Forms\Get; // Důležité pro dynamické skrývání polí
 use Illuminate\Support\Str;
 
 class EventResource extends Resource
@@ -23,6 +24,7 @@ class EventResource extends Resource
     {
         return $form
             ->schema([
+                // 1. ZÁKLADNÍ INFORMACE
                 Forms\Components\Section::make('Hlavní info')->schema([
                     Forms\Components\TextInput::make('title')
                         ->label('Název akce')
@@ -50,11 +52,45 @@ class EventResource extends Resource
                         ->label('Začátek')
                         ->required(),
 
-                    Forms\Components\DateTimePicker::make('end_at') //
+                    Forms\Components\DateTimePicker::make('end_at')
                         ->label('Konec (nepovinné)')
                         ->afterOrEqual('start_at'), 
                 ])->columns(2),
 
+                // 2. NOVÁ SEKCE PRO SLEVY A REGISTRACE
+                Forms\Components\Section::make('Nastavení kampaně / Slevy')
+                    ->description('Nastavte, pokud chcete sbírat kontakty nebo nabízet slevy (QR kód).')
+                    ->schema([
+                        Forms\Components\Toggle::make('is_commercial')
+                            ->label('Aktivovat sběr kontaktů / slevu')
+                            ->onColor('success')
+                            ->offColor('gray')
+                            ->live(), // Důležité: Reaguje okamžitě
+
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('capacity_limit')
+                                    ->label('Kapacita (Počet voucherů)')
+                                    ->numeric()
+                                    ->suffix('ks')
+                                    ->placeholder('Neomezeně')
+                                    ->helperText('Nechte prázdné pro neomezený počet.'),
+
+                                Forms\Components\CheckboxList::make('required_fields')
+                                    ->label('Vyžadované údaje od zákazníka')
+                                    ->options([
+                                        'email' => 'Email',
+                                        'phone' => 'Telefonní číslo',
+                                        'instagram' => 'Instagram profil',
+                                    ])
+                                    ->columns(3)
+                                    ->helperText('Co musí uživatel vyplnit pro získání slevy?'),
+                            ])
+                            ->visible(fn (Get $get) => $get('is_commercial')), // Zobrazit jen když je zapnuto
+                    ])
+                    ->collapsible(),
+
+                // 3. OBSAH A MÉDIA
                 Forms\Components\Section::make('Obsah')->schema([
                     Forms\Components\Textarea::make('perex')
                         ->label('Krátký úvod (na kartičku)')
@@ -85,7 +121,16 @@ class EventResource extends Resource
                     
                 Tables\Columns\TextColumn::make('title')
                     ->label('Název')
-                    ->searchable(),
+                    ->searchable()
+                    ->description(fn (Event $record) => Str::limit($record->perex, 30)),
+
+                // Indikátor, že je akce slevová
+                Tables\Columns\IconColumn::make('is_commercial')
+                    ->label('Sleva')
+                    ->boolean()
+                    ->trueIcon('heroicon-o-tag')
+                    ->falseIcon('heroicon-o-minus')
+                    ->color(fn (string $state): string => $state ? 'warning' : 'gray'),
 
                 Tables\Columns\TextColumn::make('start_at')
                     ->label('Kdy')
@@ -98,6 +143,11 @@ class EventResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
+            ])
+            ->bulkActions([
+                Tables\Actions\BulkActionGroup::make([
+                    Tables\Actions\DeleteBulkAction::make(),
+                ]),
             ]);
     }
 

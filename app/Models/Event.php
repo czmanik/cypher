@@ -20,10 +20,10 @@ class Event extends Model
         'description',
         'image_path',
         'is_published',
-        // Nová pole pro slevy:
         'is_commercial',
         'capacity_limit',
         'required_fields',
+        'offline_consumed_count',
     ];
 
     protected $casts = [
@@ -40,12 +40,13 @@ class Event extends Model
         return $this->hasMany(EventClaim::class);
     }
 
-    // Pomocná metoda pro výpočet kapacity
     public function getRemainingCapacityAttribute()
     {
-        // Pokud je limit null (neomezeně), vrátíme "nekonečno" (hodně velké číslo)
         if (is_null($this->capacity_limit)) return 999999;
         
-        return $this->capacity_limit - $this->claims()->count();
+        // Celková kapacita MÍNUS (online nároky + offline spotřeba)
+        $used = $this->claims()->count() + $this->offline_consumed_count;
+        
+        return max(0, $this->capacity_limit - $used);
     }
 }

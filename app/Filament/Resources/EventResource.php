@@ -75,6 +75,12 @@ class EventResource extends Resource
                                     ->suffix('ks')
                                     ->placeholder('Neomezeně')
                                     ->helperText('Nechte prázdné pro neomezený počet.'),
+                                
+                                Forms\Components\TextInput::make('offline_consumed_count')
+                                    ->label('Offline spotřeba')
+                                    ->numeric()
+                                    ->default(0)
+                                    ->helperText('Kolik kusů se rozdalo mimo web? (Odečte se z kapacity).'),
 
                                 Forms\Components\CheckboxList::make('required_fields')
                                     ->label('Vyžadované údaje od zákazníka')

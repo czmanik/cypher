@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
+// --- 1. PŘIDÁNY IMPORTY PRO FILAMENT ---
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
+
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable
+// --- 2. PŘIDÁNO "implements FilamentUser" ---
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
@@ -57,9 +62,17 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
-            'is_manager' => 'boolean', // <--- NOVÉ
+            'is_manager' => 'boolean',
             'hourly_rate' => 'decimal:2',
         ];
+    }
+
+    // --- 3. PŘIDÁNA METODA PRO PŘÍSTUP DO ADMINU ---
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // Vrátíme true = pustíme tam každého přihlášeného (prozatím)
+        // Až to budeš chtít omezit jen na manažery, změň to na: return $this->is_manager;
+        return true;
     }
 
     // Helper pro hezký výpis pozice v češtině

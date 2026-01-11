@@ -23,6 +23,10 @@ class User extends Authenticatable implements FilamentUser
     const TYPE_SUPPORT = 'support';
     const TYPE_MANAGER = 'manager';
 
+    const ROLE_ADMIN = 'admin';
+    const ROLE_MANAGER = 'manager';
+    const ROLE_EMPLOYEE = 'employee';
+
     /**
      * The attributes that are mass assignable.
      *
@@ -38,6 +42,7 @@ class User extends Authenticatable implements FilamentUser
         'hourly_rate',
         'is_active',
         'is_manager',
+        'role',
         'employee_type',
     ];
 
@@ -70,9 +75,25 @@ class User extends Authenticatable implements FilamentUser
     // --- 3. PŘIDÁNA METODA PRO PŘÍSTUP DO ADMINU ---
     public function canAccessPanel(Panel $panel): bool
     {
-        // Vrátíme true = pustíme tam každého přihlášeného (prozatím)
-        // Až to budeš chtít omezit jen na manažery, změň to na: return $this->is_manager;
-        return true;
+        return $this->is_active;
+    }
+
+    public function hasRole(string|array $role): bool
+    {
+        if (is_array($role)) {
+            return in_array($this->role, $role);
+        }
+        return $this->role === $role;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === self::ROLE_ADMIN;
+    }
+
+    public function isManager(): bool
+    {
+        return $this->role === self::ROLE_MANAGER || $this->isAdmin();
     }
 
     // Helper pro hezký výpis pozice v češtině

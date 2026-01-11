@@ -12,8 +12,14 @@ class PlannedShift extends Model
     protected $casts = [
         'start_at' => 'datetime',
         'end_at' => 'datetime',
-        'is_published' => 'boolean',
     ];
+
+    const STATUS_DRAFT = 'draft';
+    const STATUS_ORDERED = 'ordered'; // Nařízeno managerem
+    const STATUS_OFFERED = 'offered'; // Nabídnuto managerem
+    const STATUS_REQUESTED = 'requested'; // Poptáno zaměstnancem
+    const STATUS_CONFIRMED = 'confirmed'; // Potvrzeno zaměstnancem (akceptace nabídky)
+    const STATUS_REJECTED = 'rejected'; // Zamítnuto
 
     public function user(): BelongsTo
     {

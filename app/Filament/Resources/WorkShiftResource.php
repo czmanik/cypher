@@ -82,6 +82,18 @@ class WorkShiftResource extends Resource
             ]);
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        $user = auth()->user();
+        if ($user && !$user->isManager()) {
+            $query->where('user_id', $user->id);
+        }
+
+        return $query;
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -89,7 +101,8 @@ class WorkShiftResource extends Resource
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Zaměstnanec')
                     ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->visible(fn () => auth()->user()->isManager()), // Employees know their own name
 
                 Tables\Columns\TextColumn::make('start_at')
                     ->label('Datum')

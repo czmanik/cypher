@@ -356,6 +356,133 @@ class ShiftCalendarWidget extends FullCalendarWidget
                     $this->createEvent($data);
                     return new PlannedShift();
                 }),
+
+            Actions\Action::make('generate_shifts')
+                ->label('Hromadné generování')
+                ->icon('heroicon-o-calendar')
+                ->color('primary')
+                ->form([
+                    Forms\Components\Section::make('Období')
+                        ->schema([
+                            Forms\Components\DatePicker::make('start_date')
+                                ->label('Od')
+                                ->required()
+                                ->default(now()->startOfWeek()),
+                            Forms\Components\DatePicker::make('end_date')
+                                ->label('Do')
+                                ->required()
+                                ->default(now()->endOfWeek()),
+                        ])->columns(2),
+
+                    Forms\Components\Repeater::make('templates')
+                        ->label('Šablony směn')
+                        ->addActionLabel('Přidat pozici/šablonu')
+                        ->schema([
+                            Forms\Components\Grid::make(4)->schema([
+                                Forms\Components\Select::make('role')
+                                    ->label('Pozice')
+                                    ->options([
+                                        'kitchen' => 'Kuchyň',
+                                        'floor' => 'Plac / Bar',
+                                        'manager' => 'Management',
+                                        'support' => 'Pomocný',
+                                    ])
+                                    ->required(),
+
+                                Forms\Components\TextInput::make('count')
+                                    ->label('Počet (Volné)')
+                                    ->numeric()
+                                    ->default(1)
+                                    ->minValue(1)
+                                    ->helperText('Kolik lidí je potřeba?'),
+
+                                Forms\Components\TimePicker::make('start_time')
+                                    ->label('Od')
+                                    ->required()
+                                    ->seconds(false)
+                                    ->minutesStep(15)
+                                    ->default('08:00'),
+
+                                Forms\Components\TimePicker::make('end_time')
+                                    ->label('Do')
+                                    ->required()
+                                    ->seconds(false)
+                                    ->minutesStep(15)
+                                    ->default('16:00'),
+                            ]),
+
+                            Forms\Components\CheckboxList::make('days')
+                                ->label('Dny v týdnu')
+                                ->options([
+                                    1 => 'Pondělí',
+                                    2 => 'Úterý',
+                                    3 => 'Středa',
+                                    4 => 'Čtvrtek',
+                                    5 => 'Pátek',
+                                    6 => 'Sobota',
+                                    0 => 'Neděle',
+                                ])
+                                ->default([1, 2, 3, 4, 5])
+                                ->columns(7)
+                                ->required(),
+                        ]),
+
+                    Forms\Components\Toggle::make('is_published')
+                        ->label('Zveřejnit ihned')
+                        ->default(true),
+                ])
+                ->action(function (array $data) {
+                    $startDate = Carbon::parse($data['start_date']);
+                    $endDate = Carbon::parse($data['end_date']);
+                    $templates = $data['templates'] ?? [];
+                    $countCreated = 0;
+
+                    for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
+                        $dayOfWeek = $date->dayOfWeek; // 0 (Sun) - 6 (Sat)
+
+                        foreach ($templates as $template) {
+                            if (in_array($dayOfWeek, $template['days'] ?? [])) {
+                                // Create N shifts
+                                $qty = (int) ($template['count'] ?? 1);
+
+                                for ($i = 0; $i < $qty; $i++) {
+                                    $startAt = $date->copy()->setTimeFromTimeString($template['start_time']);
+                                    $endAt = $date->copy()->setTimeFromTimeString($template['end_time']);
+
+                                    // Handle overnight shifts (end time < start time)
+                                    if ($endAt->lessThan($startAt)) {
+                                        $endAt->addDay();
+                                    }
+
+                                    $shift = PlannedShift::create([
+                                        'user_id' => null, // Open shift by default for generator
+                                        'start_at' => $startAt,
+                                        'end_at' => $endAt,
+                                        'shift_role' => $template['role'],
+                                        'is_published' => $data['is_published'],
+                                        'status' => 'pending',
+                                    ]);
+
+                                    ShiftAuditLog::create([
+                                        'planned_shift_id' => $shift->id,
+                                        'user_id' => Auth::id() ?? User::first()->id,
+                                        'action' => 'created',
+                                        'payload' => ['type' => 'generated_bulk'],
+                                    ]);
+
+                                    $countCreated++;
+                                }
+                            }
+                        }
+                    }
+
+                    Notification::make()
+                        ->title("Vygenerováno $countCreated směn")
+                        ->success()
+                        ->send();
+
+                    $this->refreshEvents();
+                }),
         ];
     }
     

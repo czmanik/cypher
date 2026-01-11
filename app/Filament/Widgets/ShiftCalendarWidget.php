@@ -216,6 +216,23 @@ class ShiftCalendarWidget extends FullCalendarWidget
                 'shift_role' => $record->shift_role,
                 'note' => $record->note,
             ]));
+
+            // Přidání akce pro Managera: Vzít si směnu
+            $actions[] = Action::make('manager_take_shift')
+                ->label('Vzít si tuto směnu')
+                ->icon('heroicon-o-user-plus')
+                ->color('success')
+                // Zobrazit pokud user_id není moje
+                ->visible(fn (PlannedShift $record) => $record->user_id !== $user->id)
+                ->requiresConfirmation()
+                ->action(function (PlannedShift $record) use ($user) {
+                    $record->update([
+                        'user_id' => $user->id,
+                        'status' => PlannedShift::STATUS_CONFIRMED, // Manager si to rovnou potvrdí
+                    ]);
+                    Notification::make()->title('Směna přiřazena')->success()->send();
+                });
+
             $actions[] = DeleteAction::make();
         } else {
             // ZAMĚSTNANEC

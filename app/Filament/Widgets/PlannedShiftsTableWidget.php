@@ -89,6 +89,19 @@ class PlannedShiftsTableWidget extends BaseWidget
                                 'ordered' => 'Nařízeno',
                             ]),
                     ]),
+
+                Tables\Actions\Action::make('assign_self')
+                    ->label('Vzít si')
+                    ->icon('heroicon-o-hand-raised')
+                    ->color('success')
+                    ->visible(fn (PlannedShift $record) => $record->user_id !== auth()->id())
+                    ->action(function (PlannedShift $record) {
+                        $record->update([
+                            'user_id' => auth()->id(),
+                            'status' => 'confirmed'
+                        ]);
+                    }),
+
                 DeleteAction::make(),
             ])
             ->bulkActions([

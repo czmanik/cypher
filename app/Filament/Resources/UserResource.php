@@ -61,6 +61,16 @@ class UserResource extends Resource
                         'hourly' => 'Hodinová mzda',
                         'fixed' => 'Fixní plat',
                     ]),
+                Forms\Components\Select::make('qualifications')
+                    ->label('Kvalifikace / Pozice')
+                    ->multiple()
+                    ->options([
+                        'kitchen' => 'Kuchyň',
+                        'floor' => 'Plac / Bar',
+                        'support' => 'Pomocný personál',
+                        'manager' => 'Management',
+                    ])
+                    ->preload(),
                 Forms\Components\TextInput::make('pin_code')
                     ->maxLength(4),
             ]);

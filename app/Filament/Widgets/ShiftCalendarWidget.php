@@ -42,13 +42,16 @@ class ShiftCalendarWidget extends FullCalendarWidget
 
         if (!$isManager) {
             // Zaměstnanec vidí jen své směny, které nejsou draft...
-            // A TAKÉ vidí volné směny (user_id IS NULL) s statusem OFFERED
+            // A TAKÉ vidí volné směny (user_id IS NULL) s statusem OFFERED,
+            // ALE JEN TY, KTERÉ ODPOVÍDAJÍ JEHO KVALIFIKACI
             $query->where(function ($q) use ($user) {
                 $q->where('user_id', $user->id)
                   ->where('status', '!=', PlannedShift::STATUS_DRAFT);
-            })->orWhere(function ($q) {
+            })->orWhere(function ($q) use ($user) {
                 $q->whereNull('user_id')
-                  ->where('status', PlannedShift::STATUS_OFFERED);
+                  ->where('status', PlannedShift::STATUS_OFFERED)
+                  // Filtrujeme podle kvalifikace
+                  ->whereIn('shift_role', $user->qualifications ?? []);
             });
         }
 
@@ -250,11 +253,33 @@ class ShiftCalendarWidget extends FullCalendarWidget
             $actions[] = Action::make('take_open_shift')
                 ->label('Vzít si směnu')
                 ->color('success')
-                ->visible(fn (PlannedShift $record) => $record->status === PlannedShift::STATUS_OFFERED && $record->user_id === null)
+                // Viditelné jen pokud je offered, null user a MÁM kvalifikaci
+                ->visible(fn (PlannedShift $record) =>
+                    $record->status === PlannedShift::STATUS_OFFERED
+                    && $record->user_id === null
+                    && $user->hasQualification($record->shift_role)
+                )
                 ->requiresConfirmation()
                 ->modalHeading('Vzít si tuto směnu?')
                 ->modalDescription(fn (PlannedShift $record) => 'Opravdu si chcete zapsat směnu: ' . $record->start_at->format('d.m. H:i') . '?')
                 ->action(function (PlannedShift $record) use ($user) {
+                    // Check Overlap
+                    $overlap = PlannedShift::where('user_id', $user->id)
+                        ->where(function ($q) use ($record) {
+                             $q->whereBetween('start_at', [$record->start_at, $record->end_at])
+                               ->orWhereBetween('end_at', [$record->start_at, $record->end_at])
+                               ->orWhere(function ($sq) use ($record) {
+                                   $sq->where('start_at', '<=', $record->start_at)
+                                     ->where('end_at', '>=', $record->end_at);
+                               });
+                        })
+                        ->exists();
+
+                    if ($overlap) {
+                        Notification::make()->title('Nelze převzít: Máte v tomto čase jinou směnu.')->danger()->send();
+                        return;
+                    }
+
                     $record->update([
                         'user_id' => $user->id,
                         'status' => PlannedShift::STATUS_CONFIRMED, // Rovnou potvrdíme, když si ji vzal sám

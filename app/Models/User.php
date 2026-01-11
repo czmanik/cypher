@@ -43,7 +43,7 @@ class User extends Authenticatable implements FilamentUser
         'is_active',
         'is_manager',
         'role',
-        'employee_type',
+        'qualifications',
     ];
 
     /**
@@ -69,6 +69,7 @@ class User extends Authenticatable implements FilamentUser
             'is_active' => 'boolean',
             'is_manager' => 'boolean',
             'hourly_rate' => 'decimal:2',
+            'qualifications' => 'array',
         ];
     }
 
@@ -96,15 +97,29 @@ class User extends Authenticatable implements FilamentUser
         return $this->role === self::ROLE_MANAGER || $this->isAdmin();
     }
 
-    // Helper pro hezký výpis pozice v češtině
-    public function getEmployeeTypeLabelAttribute(): string
+    public function hasQualification(string $role): bool
     {
-        return match($this->employee_type) {
+        // Admin/Manager can do everything? Maybe not, but for filtering shifts they are special.
+        // Let's stick to explicit qualifications.
+        if (empty($this->qualifications)) {
+            return false;
+        }
+        return in_array($role, $this->qualifications);
+    }
+
+    // Helper pro hezký výpis pozic v češtině
+    public function getQualificationsLabelsAttribute(): string
+    {
+        if (empty($this->qualifications)) return 'Neurčeno';
+
+        $labels = [
             self::TYPE_KITCHEN => 'Kuchyň',
             self::TYPE_FLOOR => 'Plac / Bar',
-            self::TYPE_SUPPORT => 'Pomocný personál',
+            self::TYPE_SUPPORT => 'Pomoc',
             self::TYPE_MANAGER => 'Management',
-            default => 'Neurčeno',
-        };
+        ];
+
+        $myLabels = array_map(fn($q) => $labels[$q] ?? $q, $this->qualifications);
+        return implode(', ', $myLabels);
     }
 }

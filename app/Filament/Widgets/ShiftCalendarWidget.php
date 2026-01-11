@@ -18,9 +18,10 @@ class ShiftCalendarWidget extends FullCalendarWidget
     protected static ?int $sort = 5;
     protected int | string | array $columnSpan = 'full';
 
-    public function getHeading(): string
+    // Heading is handled by the Page title now.
+    public function getHeading(): string|null
     {
-        return auth()->user()->isManager() ? 'Plánovač Směn' : 'Můj Kalendář';
+        return null;
     }
 
     public function fetchEvents(array $fetchInfo): array

@@ -12,6 +12,7 @@ use Filament\Actions\DeleteAction;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
 use Filament\Notifications\Notification;
+use Livewire\Attributes\On;
 
 class ShiftCalendarWidget extends FullCalendarWidget
 {
@@ -28,6 +29,7 @@ class ShiftCalendarWidget extends FullCalendarWidget
      * Fetch events for the calendar.
      * Note: Type hint for $fetchInfo removed to prevent Livewire hydration issues.
      */
+    #[On('fetchEvents')]
     public function fetchEvents($fetchInfo): array
     {
         $user = auth()->user();

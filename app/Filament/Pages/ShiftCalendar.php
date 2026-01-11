@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\ShiftCalendarWidget;
+use App\Filament\Widgets\PlannedShiftsTableWidget; // New Widget
 use App\Models\PlannedShift;
 use App\Models\ShiftPlan;
 use Filament\Actions\Action;
@@ -34,6 +35,14 @@ class ShiftCalendar extends Page
     {
         return [
             ShiftCalendarWidget::class,
+        ];
+    }
+
+    protected function getFooterWidgets(): array
+    {
+        // Add table widget at the bottom
+        return [
+            PlannedShiftsTableWidget::class,
         ];
     }
 

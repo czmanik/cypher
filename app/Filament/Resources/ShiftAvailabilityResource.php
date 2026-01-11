@@ -20,8 +20,9 @@ class ShiftAvailabilityResource extends Resource
     protected static ?string $navigationLabel = 'Moje dostupnost';
     protected static ?string $pluralModelLabel = 'Dostupnost';
     protected static ?string $modelLabel = 'Dostupnost';
+    protected static ?string $navigationGroup = 'Moje Práce';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 2;
 
     public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
     {

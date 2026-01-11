@@ -20,8 +20,9 @@ class MyScheduleResource extends Resource
     protected static ?string $navigationLabel = 'Moje Směny';
     protected static ?string $pluralModelLabel = 'Moje Směny';
     protected static ?string $modelLabel = 'Směna';
+    protected static ?string $navigationGroup = 'Moje Práce';
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
-    protected static ?int $navigationSort = 10;
+    protected static ?int $navigationSort = 1;
 
     // Only show queries for the logged-in user
     public static function getEloquentQuery(): Builder

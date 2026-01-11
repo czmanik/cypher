@@ -19,8 +19,9 @@ class OpenShiftMarket extends Page implements HasTable
 
     protected static ?string $navigationIcon = 'heroicon-o-shopping-bag';
     protected static ?string $navigationLabel = 'Tržiště směn';
+    protected static ?string $navigationGroup = 'Moje Práce';
     protected static ?string $title = 'Tržiště volných směn';
-    protected static ?int $navigationSort = 11;
+    protected static ?int $navigationSort = 3;
 
     protected static string $view = 'filament.pages.open-shift-market';
 

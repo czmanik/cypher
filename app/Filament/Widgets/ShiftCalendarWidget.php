@@ -280,12 +280,12 @@ class ShiftCalendarWidget extends FullCalendarWidget
         $this->dispatch('filament-fullcalendar:refresh');
     }
 
-    /**
-     * Důležitá oprava:
-     * FullCalendar plugin vyžaduje, aby widget naslouchal této události,
-     * jinak Page Action nemůže vyvolat refresh.
-     */
+    public function refreshCalendar(): void
+    {
+        $this->dispatch('filament-fullcalendar:refresh');
+    }
+
     protected $listeners = [
-        'filament-fullcalendar:refresh' => '$refresh',
+        'refresh-calendar' => 'refreshCalendar',
     ];
 }

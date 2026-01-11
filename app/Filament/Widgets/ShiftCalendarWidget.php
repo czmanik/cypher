@@ -24,7 +24,11 @@ class ShiftCalendarWidget extends FullCalendarWidget
         return null;
     }
 
-    public function fetchEvents(array $fetchInfo): array
+    /**
+     * Fetch events for the calendar.
+     * Note: Type hint for $fetchInfo removed to prevent Livewire hydration issues.
+     */
+    public function fetchEvents($fetchInfo): array
     {
         $user = auth()->user();
         $isManager = $user->isManager();

@@ -39,7 +39,7 @@ class OpenShiftTest extends TestCase
     public function test_employee_can_see_open_shifts()
     {
         $user = User::factory()->create([
-            'employee_type' => 'kitchen',
+            'employee_type' => ['kitchen'],
             'is_active' => true, // Ensure active for Filament access
         ]);
 

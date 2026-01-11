@@ -14,6 +14,9 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         \App\Models\PlannedShift::class => \App\Policies\PlannedShiftPolicy::class,
+        \App\Models\User::class => \App\Policies\UserPolicy::class,
+        \App\Models\WorkShift::class => \App\Policies\WorkShiftPolicy::class,
+        \App\Models\ChecklistTemplate::class => \App\Policies\ChecklistTemplatePolicy::class,
     ];
 
     /**

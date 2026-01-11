@@ -23,7 +23,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        // Allow all active users to access the panel
+        // Allow all active users to access the panel (Employee portal)
         return $this->is_active;
     }
 
@@ -68,6 +68,7 @@ class User extends Authenticatable implements FilamentUser
             'is_active' => 'boolean',
             'is_manager' => 'boolean', // <--- NOVÉ
             'hourly_rate' => 'decimal:2',
+            'employee_type' => 'array', // <--- Changed to Array
         ];
     }
 
@@ -84,12 +85,20 @@ class User extends Authenticatable implements FilamentUser
     // Helper pro hezký výpis pozice v češtině
     public function getEmployeeTypeLabelAttribute(): string
     {
-        return match($this->employee_type) {
-            self::TYPE_KITCHEN => 'Kuchyň',
-            self::TYPE_FLOOR => 'Plac / Bar',
-            self::TYPE_SUPPORT => 'Pomocný personál',
-            self::TYPE_MANAGER => 'Management',
-            default => 'Neurčeno',
-        };
+        $types = $this->employee_type ?? [];
+        if (!is_array($types)) return 'Neurčeno';
+
+        $labels = [];
+        foreach ($types as $type) {
+            $labels[] = match($type) {
+                self::TYPE_KITCHEN => 'Kuchyň',
+                self::TYPE_FLOOR => 'Plac / Bar',
+                self::TYPE_SUPPORT => 'Pomocný personál',
+                self::TYPE_MANAGER => 'Management',
+                default => 'Neurčeno',
+            };
+        }
+
+        return implode(', ', $labels);
     }
 }

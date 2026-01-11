@@ -43,15 +43,16 @@ class OpenShiftMarket extends Page implements HasTable
                     ->where('is_published', true)
                     ->where('start_at', '>=', now()) // Only future
                     ->where(function (Builder $query) {
-                        // Filter by user's role (if shift has a role set)
-                        // If shift role is null, everyone sees it? Or logic:
-                        // - If shift_role IS SET, only user with that employee_type sees it.
-                        // - If shift_role IS NULL, everyone sees it.
-                        // User's employee_type might be null (admin/manager), let them see everything?
-                        $userType = Auth::user()->employee_type;
+                        $user = Auth::user();
+
+                        // Managers see everything
+                        if ($user->is_manager) return;
+
+                        // Employee sees shifts that match ONE of their roles OR open to all
+                        $userTypes = $user->employee_type ?? [];
 
                         $query->whereNull('shift_role')
-                              ->orWhere('shift_role', $userType);
+                              ->orWhereIn('shift_role', $userTypes);
                     })
                     ->orderBy('start_at')
             )

@@ -10,9 +10,9 @@ use Filament\Support\Enums\MaxWidth;
 
 class ViewShiftHistoryAction extends Action
 {
-    public static function make(string $name = 'viewHistory'): static
+    public static function make(?string $name = null): static
     {
-        return parent::make($name)
+        return parent::make($name ?? 'viewHistory')
             ->label('Historie')
             ->icon('heroicon-o-clock')
             ->modalHeading('Historie směny')

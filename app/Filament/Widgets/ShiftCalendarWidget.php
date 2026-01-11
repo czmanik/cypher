@@ -212,7 +212,8 @@ class ShiftCalendarWidget extends FullCalendarWidget
 
         if ($user->isManager()) {
             // Remove manual mountUsing to fix "fill() on null" error
-            $actions[] = EditAction::make();
+            // Explicitly pass form schema to EditAction
+            $actions[] = EditAction::make()->form($this->getFormSchema());
 
             // Přidání akce pro Managera: Vzít si směnu
             $actions[] = Action::make('manager_take_shift')
@@ -295,6 +296,7 @@ class ShiftCalendarWidget extends FullCalendarWidget
             // 3. Editace vlastní žádosti (pokud ještě nebyla schválena/zamítnuta)
             $actions[] = EditAction::make()
                 ->label('Upravit žádost')
+                ->form($this->getFormSchema()) // Explicitly pass schema here too
                 ->visible(fn (PlannedShift $record) => $record->status === PlannedShift::STATUS_REQUESTED && $record->user_id === $user->id);
 
             // 4. Smazání vlastní žádosti

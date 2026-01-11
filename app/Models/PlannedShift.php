@@ -25,4 +25,9 @@ class PlannedShift extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    public function shiftPlan(): BelongsTo
+    {
+        return $this->belongsTo(ShiftPlan::class);
+    }
 }

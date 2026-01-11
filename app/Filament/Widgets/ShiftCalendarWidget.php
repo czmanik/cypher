@@ -35,9 +35,15 @@ class ShiftCalendarWidget extends FullCalendarWidget
             ->with('user');
 
         if (!$isManager) {
-            // Zaměstnanec vidí jen své směny, které nejsou draft
-            $query->where('user_id', $user->id)
+            // Zaměstnanec vidí jen své směny, které nejsou draft...
+            // A TAKÉ vidí volné směny (user_id IS NULL) s statusem OFFERED
+            $query->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
                   ->where('status', '!=', PlannedShift::STATUS_DRAFT);
+            })->orWhere(function ($q) {
+                $q->whereNull('user_id')
+                  ->where('status', PlannedShift::STATUS_OFFERED);
+            });
         }
 
         return $query->get()
@@ -73,6 +79,15 @@ class ShiftCalendarWidget extends FullCalendarWidget
 
     protected function getEventTitle(PlannedShift $shift, bool $isManager): string
     {
+        // Název role/pozice
+        $roleLabel = match($shift->shift_role) {
+            'manager' => 'Management',
+            'kitchen' => 'Kuchyň',
+            'floor' => 'Plac / Bar',
+            'support' => 'Pomoc',
+            default => $shift->shift_role ?? 'Směna',
+        };
+
         if ($isManager) {
             $statusPrefix = match($shift->status) {
                 PlannedShift::STATUS_DRAFT => '[DRAFT] ',
@@ -80,15 +95,26 @@ class ShiftCalendarWidget extends FullCalendarWidget
                 PlannedShift::STATUS_OFFERED => '[NABÍDKA] ',
                 default => '',
             };
+
+            // Pokud je slot volný (nemá usera)
+            if (!$shift->user_id) {
+                return $statusPrefix . 'Volno: ' . $roleLabel;
+            }
+
             return $statusPrefix . $shift->user->name . ' (' . ($shift->shift_role ?? $shift->user->employee_type) . ')';
         }
 
         // Pro zaměstnance
+        // Pokud je slot volný (nabídka k převzetí)
+        if (!$shift->user_id && $shift->status === PlannedShift::STATUS_OFFERED) {
+            return 'VOLNO: ' . $roleLabel . ' (Klikni)';
+        }
+
         return match($shift->status) {
             PlannedShift::STATUS_REQUESTED => 'Moje žádost',
-            PlannedShift::STATUS_OFFERED => 'Nabídka směny (Klikni pro přijetí)',
-            PlannedShift::STATUS_ORDERED => 'Směna: ' . ($shift->shift_role ?? 'Standard'),
-            PlannedShift::STATUS_CONFIRMED => 'Potvrzeno',
+            PlannedShift::STATUS_OFFERED => 'Nabídka: ' . $roleLabel, // (Specificky pro user assigned offer)
+            PlannedShift::STATUS_ORDERED => 'Směna: ' . $roleLabel,
+            PlannedShift::STATUS_CONFIRMED => 'Potvrzeno: ' . $roleLabel,
             default => 'Směna',
         };
     }
@@ -103,7 +129,7 @@ class ShiftCalendarWidget extends FullCalendarWidget
                 Forms\Components\Select::make('user_id')
                     ->label('Zaměstnanec')
                     ->options(User::where('is_active', true)->pluck('name', 'id'))
-                    ->required()
+                    ->helperText('Nechte prázdné pro vytvoření "Volné směny" k nabídnutí.')
                     ->searchable(),
 
                 Forms\Components\Grid::make(2)->schema([
@@ -187,14 +213,30 @@ class ShiftCalendarWidget extends FullCalendarWidget
             $actions[] = DeleteAction::make();
         } else {
             // ZAMĚSTNANEC
-            // 1. Akce pro přijetí nabídky
-            $actions[] = Action::make('accept_offer')
-                ->label('Přijmout směnu')
+            // 1. Akce pro přijetí nabídky (Pokud je přiřazen přímo mně)
+            $actions[] = Action::make('accept_assigned_offer')
+                ->label('Potvrdit směnu')
                 ->color('success')
                 ->visible(fn (PlannedShift $record) => $record->status === PlannedShift::STATUS_OFFERED && $record->user_id === $user->id)
                 ->action(function (PlannedShift $record) {
                     $record->update(['status' => PlannedShift::STATUS_CONFIRMED]);
-                    Notification::make()->title('Směna přijata')->success()->send();
+                    Notification::make()->title('Směna potvrzena')->success()->send();
+                });
+
+            // 1b. Akce pro PŘEVZETÍ volné směny (Pokud je user_id null)
+            $actions[] = Action::make('take_open_shift')
+                ->label('Vzít si směnu')
+                ->color('success')
+                ->visible(fn (PlannedShift $record) => $record->status === PlannedShift::STATUS_OFFERED && $record->user_id === null)
+                ->requiresConfirmation()
+                ->modalHeading('Vzít si tuto směnu?')
+                ->modalDescription(fn (PlannedShift $record) => 'Opravdu si chcete zapsat směnu: ' . $record->start_at->format('d.m. H:i') . '?')
+                ->action(function (PlannedShift $record) use ($user) {
+                    $record->update([
+                        'user_id' => $user->id,
+                        'status' => PlannedShift::STATUS_CONFIRMED, // Rovnou potvrdíme, když si ji vzal sám
+                    ]);
+                    Notification::make()->title('Směna zapsána')->success()->send();
                 });
 
             // 2. Akce pro odmítnutí nabídky
@@ -237,4 +279,13 @@ class ShiftCalendarWidget extends FullCalendarWidget
     {
         $this->dispatch('filament-fullcalendar:refresh');
     }
+
+    /**
+     * Důležitá oprava:
+     * FullCalendar plugin vyžaduje, aby widget naslouchal této události,
+     * jinak Page Action nemůže vyvolat refresh.
+     */
+    protected $listeners = [
+        'filament-fullcalendar:refresh' => '$refresh',
+    ];
 }

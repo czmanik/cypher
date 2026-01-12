@@ -23,6 +23,10 @@ class User extends Authenticatable implements FilamentUser
     const TYPE_SUPPORT = 'support';
     const TYPE_MANAGER = 'manager';
 
+    const ROLE_ADMIN = 'admin';
+    const ROLE_MANAGER = 'manager';
+    const ROLE_EMPLOYEE = 'employee';
+
     /**
      * The attributes that are mass assignable.
      *
@@ -38,7 +42,8 @@ class User extends Authenticatable implements FilamentUser
         'hourly_rate',
         'is_active',
         'is_manager',
-        'employee_type',
+        'role',
+        'qualifications',
     ];
 
     /**
@@ -64,26 +69,57 @@ class User extends Authenticatable implements FilamentUser
             'is_active' => 'boolean',
             'is_manager' => 'boolean',
             'hourly_rate' => 'decimal:2',
+            'qualifications' => 'array',
         ];
     }
 
     // --- 3. PŘIDÁNA METODA PRO PŘÍSTUP DO ADMINU ---
     public function canAccessPanel(Panel $panel): bool
     {
-        // Vrátíme true = pustíme tam každého přihlášeného (prozatím)
-        // Až to budeš chtít omezit jen na manažery, změň to na: return $this->is_manager;
-        return true;
+        return $this->is_active;
     }
 
-    // Helper pro hezký výpis pozice v češtině
-    public function getEmployeeTypeLabelAttribute(): string
+    public function hasRole(string|array $role): bool
     {
-        return match($this->employee_type) {
+        if (is_array($role)) {
+            return in_array($this->role, $role);
+        }
+        return $this->role === $role;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === self::ROLE_ADMIN;
+    }
+
+    public function isManager(): bool
+    {
+        return $this->role === self::ROLE_MANAGER || $this->isAdmin();
+    }
+
+    public function hasQualification(string $role): bool
+    {
+        // Admin/Manager can do everything? Maybe not, but for filtering shifts they are special.
+        // Let's stick to explicit qualifications.
+        if (empty($this->qualifications)) {
+            return false;
+        }
+        return in_array($role, $this->qualifications);
+    }
+
+    // Helper pro hezký výpis pozic v češtině
+    public function getQualificationsLabelsAttribute(): string
+    {
+        if (empty($this->qualifications)) return 'Neurčeno';
+
+        $labels = [
             self::TYPE_KITCHEN => 'Kuchyň',
             self::TYPE_FLOOR => 'Plac / Bar',
-            self::TYPE_SUPPORT => 'Pomocný personál',
+            self::TYPE_SUPPORT => 'Pomoc',
             self::TYPE_MANAGER => 'Management',
-            default => 'Neurčeno',
-        };
+        ];
+
+        $myLabels = array_map(fn($q) => $labels[$q] ?? $q, $this->qualifications);
+        return implode(', ', $myLabels);
     }
 }

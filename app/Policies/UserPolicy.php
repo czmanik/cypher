@@ -3,51 +3,65 @@
 namespace App\Policies;
 
 use App\Models\User;
+use Illuminate\Auth\Access\Response;
 
 class UserPolicy
 {
     /**
-     * Kdo může vidět seznam uživatelů v menu?
-     * (Pokud vrátí false, položka "Zaměstnanci" zmizí z levého menu)
+     * Determine whether the user can view any models.
      */
     public function viewAny(User $user): bool
     {
-        return $user->is_manager;
+        // Only Admin and Manager can view the list of users
+        return $user->isManager();
     }
 
     /**
-     * Kdo může vidět detail konkrétního uživatele?
+     * Determine whether the user can view the model.
      */
     public function view(User $user, User $model): bool
     {
-        // Manažer vidí všechny, zaměstnanec jen svůj vlastní profil
-        return $user->is_manager || $user->id === $model->id;
+        // Admin/Manager can view anyone. Employee can view themselves.
+        return $user->isManager() || $user->id === $model->id;
     }
 
     /**
-     * Kdo může vytvářet nové uživatele?
+     * Determine whether the user can create models.
      */
     public function create(User $user): bool
     {
-        return $user->is_manager;
+        return $user->isManager();
     }
 
     /**
-     * Kdo může upravovat uživatele?
+     * Determine whether the user can update the model.
      */
     public function update(User $user, User $model): bool
     {
-        // ZDE JE ZMĚNA:
-        // Povolíme to manažerovi NEBO pokud uživatel upravuje sám sebe.
-        return $user->is_manager || $user->id === $model->id;
+        // Admin can update anyone.
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        // Manager can update others, but NOT Admins.
+        if ($user->isManager()) {
+            return !$model->isAdmin();
+        }
+
+        // Employee can update themselves (or restricted fields)
+        return $user->id === $model->id;
     }
 
     /**
-     * Kdo může mazat uživatele?
+     * Determine whether the user can delete the model.
      */
     public function delete(User $user, User $model): bool
     {
-        // Mazat může vždy jen manažer (aby si zaměstnanec omylem nesmazal účet i s historií směn)
-        return $user->is_manager;
+        // Manager cannot delete Admin
+        if ($model->isAdmin()) {
+            return $user->isAdmin(); // Only Admin can delete Admin
+        }
+
+        return $user->isManager();
     }
 }

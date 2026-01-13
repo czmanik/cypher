@@ -70,7 +70,7 @@ class UserResource extends Resource
                             ->required()
                             ->helperText('Slouží pro rychlé přihlášení na tabletu.'),
 
-                        Select::make('employee_type')
+                        Forms\Components\CheckboxList::make('employee_type')
                             ->label('Oddělení / Pozice')
                             ->options([
                                 'manager' => 'Management / Majitel',
@@ -78,7 +78,8 @@ class UserResource extends Resource
                                 'floor' => 'Plac / Bar',
                                 'support' => 'Pomocný personál',
                             ])
-                            ->required(),
+                            ->required()
+                            ->columns(2),
 
                         Select::make('salary_type')
                             ->label('Typ Mzdy')
@@ -126,6 +127,7 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('employee_type')
                     ->label('Pozice')
                     ->badge()
+                    ->separator(',')
                     ->color(fn (string $state): string => match ($state) {
                         'manager' => 'primary',
                         'kitchen' => 'warning', // Oranžová
@@ -155,14 +157,28 @@ class UserResource extends Resource
             ->filters([
                 Tables\Filters\TernaryFilter::make('is_active')
                     ->label('Jen aktivní'),
-                Tables\Filters\SelectFilter::make('employee_type')
-                    ->label('Oddělení')
-                    ->options([
-                        'manager' => 'Management / Majitel',
-                        'kitchen' => 'Kuchyň',
-                        'floor' => 'Plac / Bar',
-                        'support' => 'Pomocný',
-                    ]),
+                // Filter for JSON array is trickier, simplified filter might not work directly with SelectFilter on JSON in SQLite/MySQL without specific query modification.
+                // Filament SelectFilter on simple column works. On JSON cast column...
+                // Ideally we use a query filter.
+                Tables\Filters\Filter::make('employee_type')
+                    ->form([
+                        Forms\Components\Select::make('type')
+                            ->label('Oddělení')
+                            ->options([
+                                'manager' => 'Management / Majitel',
+                                'kitchen' => 'Kuchyň',
+                                'floor' => 'Plac / Bar',
+                                'support' => 'Pomocný',
+                            ]),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['type'],
+                            // JSON contains check. Note: SQLite/MySQL syntax differs but Laravel handles some.
+                            // However, simple 'like' might work if we are lazy or use whereJsonContains
+                            fn (Builder $query, $type) => $query->whereJsonContains('employee_type', $type)
+                        );
+                    }),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

@@ -3,11 +3,14 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
@@ -17,6 +20,12 @@ class User extends Authenticatable
     const TYPE_FLOOR = 'floor';
     const TYPE_SUPPORT = 'support';
     const TYPE_MANAGER = 'manager';
+
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // Allow all active users to access the panel (Employee portal)
+        return $this->is_active;
+    }
 
     /**
      * The attributes that are mass assignable.
@@ -59,18 +68,37 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'is_manager' => 'boolean', // <--- NOVÉ
             'hourly_rate' => 'decimal:2',
+            'employee_type' => 'array', // <--- Changed to Array
         ];
+    }
+
+    public function plannedShifts(): HasMany
+    {
+        return $this->hasMany(PlannedShift::class);
+    }
+
+    public function availabilities(): HasMany
+    {
+        return $this->hasMany(ShiftAvailability::class);
     }
 
     // Helper pro hezký výpis pozice v češtině
     public function getEmployeeTypeLabelAttribute(): string
     {
-        return match($this->employee_type) {
-            self::TYPE_KITCHEN => 'Kuchyň',
-            self::TYPE_FLOOR => 'Plac / Bar',
-            self::TYPE_SUPPORT => 'Pomocný personál',
-            self::TYPE_MANAGER => 'Management',
-            default => 'Neurčeno',
-        };
+        $types = $this->employee_type ?? [];
+        if (!is_array($types)) return 'Neurčeno';
+
+        $labels = [];
+        foreach ($types as $type) {
+            $labels[] = match($type) {
+                self::TYPE_KITCHEN => 'Kuchyň',
+                self::TYPE_FLOOR => 'Plac / Bar',
+                self::TYPE_SUPPORT => 'Pomocný personál',
+                self::TYPE_MANAGER => 'Management',
+                default => 'Neurčeno',
+            };
+        }
+
+        return implode(', ', $labels);
     }
 }

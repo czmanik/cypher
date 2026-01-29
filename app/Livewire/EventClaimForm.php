@@ -16,6 +16,7 @@ class EventClaimForm extends Component
     public bool $showModal = false;
     public bool $success = false;
     public $qrCodeSvg = null;
+    public $claimCode = null;
 
     // Políčka formuláře
     public $email = '';
@@ -66,14 +67,21 @@ class EventClaimForm extends Component
         // 3. Vytvoření nároku (Voucheru)
         $token = Str::random(32); // Unikátní kód pro QR
 
+        // Generování krátkého kódu (6 znaků)
+        do {
+            $code = Str::upper(Str::random(6));
+        } while (EventClaim::where('code', $code)->exists());
+
         EventClaim::create([
             'event_id' => $this->event->id,
             'email' => $this->email,
             'phone' => $this->phone,
             'instagram' => $this->instagram,
             'claim_token' => $token,
-            //'claimed_at' => now(),
+            'code' => $code,
         ]);
+
+        $this->claimCode = $code;
 
         // 4. Vygenerování QR kódu
         // PŘIDAT (string) PŘED VOLÁNÍ FUNKCE

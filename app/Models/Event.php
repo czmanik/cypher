@@ -44,8 +44,9 @@ class Event extends Model
     {
         if (is_null($this->capacity_limit)) return 999999;
         
-        // Celková kapacita MÍNUS (online nároky + offline spotřeba)
-        $used = $this->claims()->count() + $this->offline_consumed_count;
+        // Celková kapacita MÍNUS (pouze uplatněné online nároky + offline spotřeba)
+        // Dle požadavku: odečítá voucher až po jeho načtení adminem
+        $used = $this->claims()->whereNotNull('redeemed_at')->count() + $this->offline_consumed_count;
         
         return max(0, $this->capacity_limit - $used);
     }

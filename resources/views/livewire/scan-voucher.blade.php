@@ -22,8 +22,8 @@
     </div>
 
     {{-- Manuální zadání (kdyby nešla kamera) --}}
-    <form wire:submit="checkCode(manualCode)" class="flex gap-2">
-        <input type="text" wire:model="manualCode" placeholder="Nebo zadej kód ručně..." 
+    <form wire:submit.prevent="checkCode(manualCode)" class="flex gap-2">
+        <input type="text" wire:model.live="manualCode" placeholder="Nebo zadej kód ručně..."
                class="w-full border rounded px-3 py-2 text-black">
         <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">OK</button>
     </form>

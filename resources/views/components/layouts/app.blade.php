@@ -58,6 +58,7 @@
                     @if(!$item->is_visible) @continue @endif
 
                     <a href="{{ $item->url }}" 
+                       @click="mobileMenuOpen = false"
                        class="text-lg font-medium uppercase py-2 border-b border-gray-50 hover:text-cypher-gold {{ request()->fullUrl() === $item->url ? 'text-cypher-gold' : '' }}"
                        @if($item->new_tab) target="_blank" @endif
                     >
@@ -66,7 +67,7 @@
                 @endforeach
             @endif
 
-            <a href="{{ route('reservations.create') }}" class="mt-2 px-5 py-3 bg-black text-white font-bold rounded uppercase">
+            <a href="{{ route('reservations.create') }}" @click="mobileMenuOpen = false" class="mt-2 px-5 py-3 bg-black text-white font-bold rounded uppercase">
                 Rezervace
             </a>
         </div>

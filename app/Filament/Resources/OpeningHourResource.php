@@ -35,7 +35,8 @@ class OpeningHourResource extends Resource
                             6 => 'Sobota',
                             7 => 'Neděle',
                         ])
-                        ->disabled() // Den by se neměl měnit, jen časy
+                        ->disabledOn('edit') // Den by se neměl měnit, jen časy
+                        ->unique(ignoreRecord: true)
                         ->required(),
                     
                     Forms\Components\Toggle::make('is_closed')
@@ -89,8 +90,7 @@ class OpeningHourResource extends Resource
     {
         return [
             'index' => Pages\ListOpeningHours::route('/'),
-            // 'create' vypneme, protože dny už máme vytvořené seederem a nechceme přidávat 8. den
-            // 'create' => Pages\CreateOpeningHour::route('/create'), 
+            'create' => Pages\CreateOpeningHour::route('/create'),
             'edit' => Pages\EditOpeningHour::route('/{record}/edit'),
         ];
     }

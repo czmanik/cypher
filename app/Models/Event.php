@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\HasSeo;
 
 class Event extends Model
 {
-    use HasFactory;
+    use HasFactory, HasSeo;
 
     // TOTO JE TO, CO CHYBĚLO:
     protected $fillable = [

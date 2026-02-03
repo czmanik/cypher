@@ -10,6 +10,15 @@
                 {!! $qrCodeSvg !!}
             </div>
 
+            @if($claimCode)
+                <div class="mt-4">
+                    <p class="text-sm text-gray-500 mb-1">Kód pro obsluhu:</p>
+                    <div class="font-mono text-2xl font-bold text-gray-900 bg-white px-6 py-2 rounded-lg inline-block border-2 border-dashed border-gray-300 tracking-wider">
+                        {{ $claimCode }}
+                    </div>
+                </div>
+            @endif
+
             <p class="text-xs text-gray-400 mt-4 uppercase tracking-widest">Platné pro 1 osobu</p>
         </div>
 

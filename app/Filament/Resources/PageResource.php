@@ -17,6 +17,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\Tabs;
 
 class PageResource extends Resource
 {
@@ -30,64 +31,96 @@ class PageResource extends Resource
     {
         return $form
             ->schema([
-                Section::make('Nastavení stránky')
-                    ->schema([
-                        TextInput::make('title')
-                            ->label('Název stránky')
-                            ->required()
-                            ->live(onBlur: true)
-                            ->afterStateUpdated(fn ($set, $state) => $set('slug', str()->slug($state))),
-                        
-                        TextInput::make('slug')
-                            ->label('URL adresa (např. o-nas)')
-                            ->required()
-                            ->unique(ignoreRecord: true),
-                            
-                        Toggle::make('is_active')
-                            ->label('Zveřejněno')
-                            ->default(true),
-                    ])->columns(3),
-
-                // STAVEBNICE OBSAHU
-                Builder::make('content')
-                    ->label('Obsah stránky (Bloky)')
-                    ->blocks([
-                        // 1. BLOK: Hero (Velká fotka)
-                        Builder\Block::make('hero')
-                            ->label('Hero Sekce (Velká fotka)')
+                Tabs::make('Tabs')
+                    ->tabs([
+                        Tabs\Tab::make('Obsah stránky')
                             ->schema([
-                                TextInput::make('headline')->label('Hlavní nadpis')->required(),
-                                Textarea::make('subheadline')->label('Podnadpis'),
-                                FileUpload::make('image')
-                                    ->label('Fotka na pozadí')
-                                    ->image()
-                                    ->directory('pages-hero'),
+                                Section::make('Nastavení stránky')
+                                    ->schema([
+                                        TextInput::make('title')
+                                            ->label('Název stránky')
+                                            ->required()
+                                            ->live(onBlur: true)
+                                            ->afterStateUpdated(fn ($set, $state) => $set('slug', str()->slug($state))),
+
+                                        TextInput::make('slug')
+                                            ->label('URL adresa (např. o-nas)')
+                                            ->required()
+                                            ->unique(ignoreRecord: true),
+
+                                        Toggle::make('is_active')
+                                            ->label('Zveřejněno')
+                                            ->default(true),
+                                    ])->columns(3),
+
+                                // STAVEBNICE OBSAHU
+                                Builder::make('content')
+                                    ->label('Obsah stránky (Bloky)')
+                                    ->blocks([
+                                        // 1. BLOK: Hero (Velká fotka)
+                                        Builder\Block::make('hero')
+                                            ->label('Hero Sekce (Velká fotka)')
+                                            ->schema([
+                                                TextInput::make('headline')->label('Hlavní nadpis')->required(),
+                                                Textarea::make('subheadline')->label('Podnadpis'),
+                                                FileUpload::make('image')
+                                                    ->label('Fotka na pozadí')
+                                                    ->image()
+                                                    ->directory('pages-hero'),
+                                            ]),
+
+                                        // 2. BLOK: Text + Fotka
+                                        Builder\Block::make('text_image')
+                                            ->label('Text a Fotka')
+                                            ->schema([
+                                                TextInput::make('title')->label('Nadpis sekce'),
+                                                RichEditor::make('text')->label('Text'),
+                                                FileUpload::make('image')->image()->directory('pages-content'),
+                                                Select::make('layout')
+                                                    ->options([
+                                                        'left' => 'Fotka vlevo',
+                                                        'right' => 'Fotka vpravo',
+                                                    ])->default('left'),
+                                            ]),
+
+                                        // 3. BLOK: Citát
+                                        Builder\Block::make('quote')
+                                            ->label('Citát')
+                                            ->schema([
+                                                Textarea::make('text')->required(),
+                                                TextInput::make('author')->label('Autor'),
+                                            ]),
+                                    ])
+                                    ->collapsible()
+                                    ->columnSpanFull(),
                             ]),
 
-                        // 2. BLOK: Text + Fotka
-                        Builder\Block::make('text_image')
-                            ->label('Text a Fotka')
+                        Tabs\Tab::make('SEO Optimalizace')
                             ->schema([
-                                TextInput::make('title')->label('Nadpis sekce'),
-                                RichEditor::make('text')->label('Text'),
-                                FileUpload::make('image')->image()->directory('pages-content'),
-                                Select::make('layout')
-                                    ->options([
-                                        'left' => 'Fotka vlevo',
-                                        'right' => 'Fotka vpravo',
-                                    ])->default('left'),
+                                Section::make('SEO Data')
+                                    ->relationship('seo')
+                                    ->schema([
+                                        TextInput::make('title')
+                                            ->label('Meta Title')
+                                            ->placeholder('Pokud prázdné, použije se název stránky'),
+                                        Textarea::make('description')
+                                            ->label('Meta Description')
+                                            ->rows(2)
+                                            ->placeholder('Pokud prázdné, použije se výchozí popis'),
+                                        FileUpload::make('image')
+                                            ->label('OG Image (Sdílení)')
+                                            ->image()
+                                            ->directory('seo'),
+                                        Select::make('robots')
+                                            ->label('Robots')
+                                            ->options([
+                                                'index, follow' => 'Index, Follow',
+                                                'noindex, nofollow' => 'Noindex, Nofollow',
+                                            ])
+                                            ->default('index, follow'),
+                                    ])
                             ]),
-
-                        // 3. BLOK: Citát
-                        Builder\Block::make('quote')
-                            ->label('Citát')
-                            ->schema([
-                                Textarea::make('text')->required(),
-                                TextInput::make('author')->label('Autor'),
-                            ]),
-                    ])
-                    ->collapsible()
-                    ->columnSpanFull(),
+                    ])->columnSpanFull(),
             ]);
     }
 

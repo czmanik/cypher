@@ -1,4 +1,4 @@
-<x-layouts.app :title="$page->title">
+<x-layouts.app :model="$page">
     
     {{-- Tady začíná obsah, který se vloží do {{ $slot }} v layoutu --}}
     

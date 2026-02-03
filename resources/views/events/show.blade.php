@@ -1,4 +1,4 @@
-<x-layouts.app :title="$event->title . ' | Cypher93'">
+<x-layouts.app :model="$event">
 
     <div class="relative h-[60vh] min-h-[400px] flex items-end">
         <div class="absolute inset-0">

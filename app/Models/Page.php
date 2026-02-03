@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\HasSeo;
 
 class Page extends Model
 {
-    use HasFactory;
+    use HasFactory, HasSeo;
 
     // 1. POVOLENÍ ZÁPISU (Mass Assignment)
     protected $fillable = [

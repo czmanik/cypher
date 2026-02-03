@@ -76,7 +76,7 @@ class CurrentShiftWidget extends Widget implements HasActions, HasForms
                     ->success()
                     ->send();
 
-                $this->loadActiveShift();
+                $this->redirect(request()->header('Referer'));
             });
     }
 
@@ -178,7 +178,7 @@ class CurrentShiftWidget extends Widget implements HasActions, HasForms
                     ->success()
                     ->send();
 
-                $this->loadActiveShift();
+                $this->redirect(request()->header('Referer'));
             });
     }
 }

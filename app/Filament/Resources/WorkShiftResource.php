@@ -182,15 +182,14 @@ class WorkShiftResource extends Resource
                     })
             ])
             ->actions([
-                Tables\Actions\Action::make('view_checklist')
-                    ->label('Checklist')
-                    ->icon('heroicon-o-clipboard-document-check')
+                Tables\Actions\Action::make('view_detail')
+                    ->label('Detail')
+                    ->icon('heroicon-o-eye')
                     ->color('info')
-                    ->modalHeading('Výsledky Checklistu')
+                    ->modalHeading('Detail směny')
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Zavřít')
-                    ->modalContent(fn (WorkShift $record) => view('filament.resources.work-shift-resource.pages.checklist-modal', ['record' => $record]))
-                    ->visible(fn () => auth()->user()?->is_manager),
+                    ->modalContent(fn (WorkShift $record) => view('filament.resources.work-shift-resource.pages.shift-detail-modal', ['record' => $record])),
 
                 Tables\Actions\EditAction::make()
                     ->visible(fn () => auth()->user()?->is_manager),
@@ -200,8 +199,53 @@ class WorkShiftResource extends Resource
                     ->icon('heroicon-o-check')
                     ->color('primary')
                     ->visible(fn (WorkShift $record) => $record->status === 'pending_approval' && auth()->user()?->is_manager)
-                    ->action(function (WorkShift $record) {
-                        $record->update(['status' => 'approved']);
+                    ->form([
+                        Forms\Components\TextInput::make('advance_amount')
+                            ->label('Záloha (již vyplaceno)')
+                            ->numeric()
+                            ->prefix('Kč')
+                            ->default(0),
+
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('bonus')
+                                    ->label('Bonus')
+                                    ->numeric()
+                                    ->prefix('Kč')
+                                    ->default(0)
+                                    ->live(),
+
+                                Forms\Components\Textarea::make('bonus_note')
+                                    ->label('Důvod bonusu')
+                                    ->rows(2)
+                                    ->visible(fn (Forms\Get $get) => (float)$get('bonus') > 0),
+                            ]),
+
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('penalty')
+                                    ->label('Pokuta (Malus)')
+                                    ->numeric()
+                                    ->prefix('Kč')
+                                    ->default(0)
+                                    ->live(),
+
+                                Forms\Components\Textarea::make('penalty_note')
+                                    ->label('Důvod pokuty')
+                                    ->rows(2)
+                                    ->required(fn (Forms\Get $get) => (float)$get('penalty') > 0)
+                                    ->visible(fn (Forms\Get $get) => (float)$get('penalty') > 0),
+                            ]),
+                    ])
+                    ->action(function (WorkShift $record, array $data) {
+                        $record->update([
+                            'status' => 'approved',
+                            'advance_amount' => $data['advance_amount'],
+                            'bonus' => $data['bonus'],
+                            'bonus_note' => $data['bonus_note'] ?? null,
+                            'penalty' => $data['penalty'],
+                            'penalty_note' => $data['penalty_note'] ?? null,
+                        ]);
                     }),
 
                 Tables\Actions\Action::make('mark_paid')
@@ -209,12 +253,34 @@ class WorkShiftResource extends Resource
                     ->icon('heroicon-o-currency-dollar')
                     ->color('success')
                     ->visible(fn (WorkShift $record) => $record->status === 'approved' && auth()->user()?->is_manager)
-                    ->requiresConfirmation()
-                    ->modalHeading('Potvrdit vyplacení')
-                    ->modalDescription(fn (WorkShift $record) => 'Opravdu označit směnu zaměstnance ' . $record->user->name . ' za proplacenou? Částka: ' . $record->calculated_wage . ' Kč')
-                    ->modalSubmitActionLabel('Ano, proplaceno')
-                    ->action(function (WorkShift $record) {
-                        $record->update(['status' => 'paid']);
+                    ->modalHeading('Vyplacení mzdy')
+                    ->form(fn (WorkShift $record) => [
+                        Forms\Components\Placeholder::make('summary')
+                            ->label('Rekapitulace')
+                            ->content(new \Illuminate\Support\HtmlString(
+                                '<strong>Základní mzda:</strong> ' . number_format($record->calculated_wage, 2, ',', ' ') . ' Kč<br>' .
+                                '<strong>Bonus:</strong> +' . number_format($record->bonus, 2, ',', ' ') . ' Kč<br>' .
+                                '<strong>Pokuta:</strong> -' . number_format($record->penalty, 2, ',', ' ') . ' Kč<br>' .
+                                '<strong>Záloha:</strong> -' . number_format($record->advance_amount, 2, ',', ' ') . ' Kč<br>' .
+                                '<hr>' .
+                                '<strong class="text-xl text-primary-600">K úhradě: ' . number_format($record->final_payout, 2, ',', ' ') . ' Kč</strong>'
+                            )),
+
+                        Forms\Components\Select::make('payment_method')
+                            ->label('Způsob platby')
+                            ->options([
+                                'cash' => 'Hotově',
+                                'bank_transfer' => 'Na účet',
+                            ])
+                            ->required()
+                            ->default('cash'),
+                    ])
+                    ->modalSubmitActionLabel('Potvrdit a Proplatit')
+                    ->action(function (WorkShift $record, array $data) {
+                        $record->update([
+                            'status' => 'paid',
+                            'payment_method' => $data['payment_method'],
+                        ]);
                     }),
             ])
             ->bulkActions([
@@ -233,9 +299,21 @@ class WorkShiftResource extends Resource
                         ->label('Proplatit označené')
                         ->icon('heroicon-o-currency-dollar')
                         ->color('success')
-                        ->requiresConfirmation()
                         ->visible(fn () => auth()->user()?->is_manager)
-                        ->action(fn (Collection $records) => $records->each->update(['status' => 'paid'])),
+                        ->form([
+                            Forms\Components\Select::make('payment_method')
+                                ->label('Způsob platby')
+                                ->options([
+                                    'cash' => 'Hotově',
+                                    'bank_transfer' => 'Na účet',
+                                ])
+                                ->required()
+                                ->default('cash'),
+                        ])
+                        ->action(fn (Collection $records, array $data) => $records->each->update([
+                            'status' => 'paid',
+                            'payment_method' => $data['payment_method'],
+                        ])),
                 ]),
             ]);
     }

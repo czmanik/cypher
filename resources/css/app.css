@@ -13,3 +13,7 @@
     --color-cypher-gold: #fbbf24;
     --color-cypher-light: #f3f4f6;
 }
+
+[x-cloak] {
+    display: none !important;
+}

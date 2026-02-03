@@ -30,6 +30,11 @@ class WorkShift extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function plannedShift(): BelongsTo
+    {
+        return $this->belongsTo(PlannedShift::class);
+    }
+
     public function reportItems(): HasMany
     {
         return $this->hasMany(ShiftReportItem::class);

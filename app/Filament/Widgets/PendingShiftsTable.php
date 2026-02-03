@@ -15,6 +15,11 @@ class PendingShiftsTable extends BaseWidget
     // Změníme nadpis, aby odpovídal realitě
     protected static ?string $heading = 'Směny vyžadující akci (Schválení & Platby)';
 
+    public static function canView(): bool
+    {
+        return auth()->user()?->is_manager ?? false;
+    }
+
     public function table(Table $table): Table
     {
         return $table

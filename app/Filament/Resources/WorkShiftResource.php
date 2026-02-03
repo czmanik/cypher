@@ -13,7 +13,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Columns\Summarizers\Sum;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection; // Důležité pro Bulk Actions
+use Illuminate\Database\Eloquent\Collection;
 
 class WorkShiftResource extends Resource
 {
@@ -21,6 +21,17 @@ class WorkShiftResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-clock';
     protected static ?string $navigationLabel = 'Docházka & Výplaty';
     protected static ?string $navigationGroup = 'HR & Provoz';
+
+    public static function getEloquentQuery(): Builder
+    {
+        $query = parent::getEloquentQuery();
+
+        if (! auth()->user()?->is_manager) {
+            $query->where('user_id', auth()->id());
+        }
+
+        return $query;
+    }
 
     public static function form(Form $form): Form
     {
@@ -33,15 +44,19 @@ class WorkShiftResource extends Resource
                             ->label('Zaměstnanec')
                             ->required()
                             ->searchable()
-                            ->columnSpan(2),
+                            ->columnSpan(2)
+                            // Zaměstnanec nemůže měnit uživatele (pokud by se dostal k vytvoření)
+                            ->disabled(fn () => ! auth()->user()?->is_manager),
 
                         Forms\Components\DateTimePicker::make('start_at')
                             ->label('Začátek')
-                            ->required(),
+                            ->required()
+                            ->disabled(fn () => ! auth()->user()?->is_manager),
 
                         Forms\Components\DateTimePicker::make('end_at')
                             ->label('Konec')
-                            ->helperText('Pokud nevyplníte, směna stále běží.'),
+                            ->helperText('Pokud nevyplníte, směna stále běží.')
+                            ->disabled(fn () => ! auth()->user()?->is_manager),
 
                         Forms\Components\Select::make('status')
                             ->options([
@@ -52,20 +67,21 @@ class WorkShiftResource extends Resource
                                 'rejected' => 'Zamítnuto / Chyba',
                             ])
                             ->required()
-                            ->default('active'),
+                            ->default('active')
+                            ->disabled(fn () => ! auth()->user()?->is_manager),
                     ])->columns(2),
 
                 Forms\Components\Section::make('Reporty a Poznámky')
                     ->schema([
                         Forms\Components\Textarea::make('general_note')
                             ->label('Poznámka od zaměstnance')
-                            ->disabled(), // Manažer jen čte
+                            ->disabled(fn () => ! auth()->user()?->is_manager), // Povolíme jen přes widget? Nebo necháme editovat? Nechme jen číst, editace přes widget/tlačítka.
                         
                         Forms\Components\Textarea::make('manager_note')
-                            ->label('Interní poznámka manažera'),
+                            ->label('Interní poznámka manažera')
+                            ->disabled(fn () => ! auth()->user()?->is_manager),
                     ])->columns(2),
                 
-                // Zobrazíme vypočítané hodnoty jen pro info (readonly)
                 Forms\Components\Section::make('Finance (Automatický výpočet)')
                     ->schema([
                         Forms\Components\TextInput::make('total_hours')
@@ -117,11 +133,11 @@ class WorkShiftResource extends Resource
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        'active' => 'info',              // Modrá (světlá)
-                        'pending_approval' => 'warning', // Oranžová (POZOR)
-                        'approved' => 'primary',         // Fialová/Modrá (Čeká na peníze)
-                        'paid' => 'success',             // Zelená (HOTOVO)
-                        'rejected' => 'danger',          // Červená
+                        'active' => 'info',
+                        'pending_approval' => 'warning',
+                        'approved' => 'primary',
+                        'paid' => 'success',
+                        'rejected' => 'danger',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'active' => 'Běží',
@@ -134,14 +150,13 @@ class WorkShiftResource extends Resource
             ])
             ->defaultSort('start_at', 'desc')
             ->filters([
-                // 1. Filtr podle Zaměstnance
                 SelectFilter::make('user_id')
                     ->label('Zaměstnanec')
                     ->relationship('user', 'name')
                     ->searchable()
-                    ->preload(),
+                    ->preload()
+                    ->visible(fn () => auth()->user()?->is_manager), // Filtr zaměstnance jen pro manažera
 
-                // 2. Filtr podle Statusu
                 SelectFilter::make('status')
                     ->options([
                         'pending_approval' => 'Ke kontrole',
@@ -149,7 +164,6 @@ class WorkShiftResource extends Resource
                         'paid' => 'Proplaceno',
                     ]),
 
-                // 3. Filtr podle Data
                 Filter::make('created_at')
                     ->form([
                         Forms\Components\DatePicker::make('created_from')->label('Od data'),
@@ -168,24 +182,33 @@ class WorkShiftResource extends Resource
                     })
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('view_checklist')
+                    ->label('Checklist')
+                    ->icon('heroicon-o-clipboard-document-check')
+                    ->color('info')
+                    ->modalHeading('Výsledky Checklistu')
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Zavřít')
+                    ->modalContent(fn (WorkShift $record) => view('filament.resources.work-shift-resource.pages.checklist-modal', ['record' => $record]))
+                    ->visible(fn () => auth()->user()?->is_manager),
+
+                Tables\Actions\EditAction::make()
+                    ->visible(fn () => auth()->user()?->is_manager),
                 
-                // 1. KROK: Schválit (Oranžová -> Modrá)
                 Tables\Actions\Action::make('approve')
                     ->label('Schválit')
                     ->icon('heroicon-o-check')
                     ->color('primary')
-                    ->visible(fn (WorkShift $record) => $record->status === 'pending_approval')
+                    ->visible(fn (WorkShift $record) => $record->status === 'pending_approval' && auth()->user()?->is_manager)
                     ->action(function (WorkShift $record) {
                         $record->update(['status' => 'approved']);
                     }),
 
-                // 2. KROK: Proplatit (Modrá -> Zelená)
                 Tables\Actions\Action::make('mark_paid')
                     ->label('Proplatit')
                     ->icon('heroicon-o-currency-dollar')
                     ->color('success')
-                    ->visible(fn (WorkShift $record) => $record->status === 'approved')
+                    ->visible(fn (WorkShift $record) => $record->status === 'approved' && auth()->user()?->is_manager)
                     ->requiresConfirmation()
                     ->modalHeading('Potvrdit vyplacení')
                     ->modalDescription(fn (WorkShift $record) => 'Opravdu označit směnu zaměstnance ' . $record->user->name . ' za proplacenou? Částka: ' . $record->calculated_wage . ' Kč')
@@ -196,21 +219,22 @@ class WorkShiftResource extends Resource
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->visible(fn () => auth()->user()?->is_manager),
                     
-                    // Hromadné schválení
                     Tables\Actions\BulkAction::make('approve_all')
                         ->label('Schválit označené')
                         ->icon('heroicon-o-check')
                         ->color('primary')
+                        ->visible(fn () => auth()->user()?->is_manager)
                         ->action(fn (Collection $records) => $records->each->update(['status' => 'approved'])),
 
-                    // Hromadné proplacení
                     Tables\Actions\BulkAction::make('pay_all')
                         ->label('Proplatit označené')
                         ->icon('heroicon-o-currency-dollar')
                         ->color('success')
                         ->requiresConfirmation()
+                        ->visible(fn () => auth()->user()?->is_manager)
                         ->action(fn (Collection $records) => $records->each->update(['status' => 'paid'])),
                 ]),
             ]);

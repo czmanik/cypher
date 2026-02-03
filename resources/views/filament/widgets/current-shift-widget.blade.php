@@ -18,11 +18,13 @@
 
             <div class="flex items-center gap-3">
                 @if($activeShift)
-                    {{ $this->endShiftAction }}
+                    {{ $this->endShift }}
                 @else
-                    {{ $this->startShiftAction }}
+                    {{ $this->startShift }}
                 @endif
             </div>
         </div>
     </x-filament::section>
+
+    <x-filament-actions::modals />
 </x-filament-widgets::widget>

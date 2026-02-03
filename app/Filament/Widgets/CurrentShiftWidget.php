@@ -41,7 +41,7 @@ class CurrentShiftWidget extends Widget implements HasActions, HasForms
             ->first();
     }
 
-    public function startShiftAction(): Action
+    public function startShift(): Action
     {
         return Action::make('startShift')
             ->label('Začít směnu')
@@ -80,7 +80,7 @@ class CurrentShiftWidget extends Widget implements HasActions, HasForms
             });
     }
 
-    public function endShiftAction(): Action
+    public function endShift(): Action
     {
         return Action::make('endShift')
             ->label('Ukončit směnu')

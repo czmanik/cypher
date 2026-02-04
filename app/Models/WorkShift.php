@@ -16,6 +16,9 @@ class WorkShift extends Model
         'end_at' => 'datetime',
         'total_hours' => 'decimal:2',
         'calculated_wage' => 'decimal:2',
+        'bonus' => 'decimal:2',
+        'penalty' => 'decimal:2',
+        'advance_amount' => 'decimal:2',
     ];
 
     // Konstanty stavů (aby se nám nepletly texty)
@@ -24,6 +27,9 @@ class WorkShift extends Model
     const STATUS_APPROVED = 'approved';
     const STATUS_PAID = 'paid';
     const STATUS_REJECTED = 'rejected';
+
+    const PAYMENT_METHOD_CASH = 'cash';
+    const PAYMENT_METHOD_BANK_TRANSFER = 'bank_transfer';
 
     public function user(): BelongsTo
     {
@@ -43,6 +49,12 @@ class WorkShift extends Model
     public function checklistResults(): HasMany
     {
         return $this->hasMany(ShiftChecklistResult::class);
+    }
+
+    public function getFinalPayoutAttribute(): float
+    {
+        // prevent negative payout
+        return max(0, $this->calculated_wage + $this->bonus - $this->penalty - $this->advance_amount);
     }
 
     /**

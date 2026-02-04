@@ -20,7 +20,7 @@ class MenuItemResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-bars-3'; // Ikonka menu
     protected static ?string $navigationLabel = 'Položky Menu';
-    protected static ?string $navigationGroup = 'Nastavení webu'; // Aby to bylo hezky uklizené
+    protected static ?string $navigationGroup = 'Obsah webu'; // Aby to bylo hezky uklizené
 
     public static function form(Form $form): Form
     {

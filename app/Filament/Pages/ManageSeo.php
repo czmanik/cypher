@@ -6,6 +6,7 @@ use App\Settings\SeoSettings;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Pages\SettingsPage;
+use Filament\Panel;
 
 class ManageSeo extends SettingsPage
 {
@@ -15,6 +16,13 @@ class ManageSeo extends SettingsPage
     protected static ?string $title = 'Globální SEO Nastavení';
 
     protected static string $settings = SeoSettings::class;
+
+    public static function canAccess(): bool
+    {
+        /** @var \App\Models\User $user */
+        $user = auth()->user();
+        return $user && $user->is_manager;
+    }
 
     public function form(Form $form): Form
     {

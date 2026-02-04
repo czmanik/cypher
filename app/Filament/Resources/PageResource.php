@@ -90,6 +90,50 @@ class PageResource extends Resource
                                                 Textarea::make('text')->required(),
                                                 TextInput::make('author')->label('Autor'),
                                             ]),
+
+                                        // 4. BLOK: Čistý text
+                                        Builder\Block::make('text')
+                                            ->label('Textový blok')
+                                            ->schema([
+                                                TextInput::make('title')->label('Nadpis (volitelný)'),
+                                                RichEditor::make('content')
+                                                    ->label('Obsah')
+                                                    ->required(),
+                                            ]),
+
+                                        // 5. BLOK: Galerie
+                                        Builder\Block::make('gallery')
+                                            ->label('Galerie')
+                                            ->schema([
+                                                TextInput::make('title')
+                                                    ->label('Nadpis galerie')
+                                                    ->placeholder('Volitelné'),
+
+                                                Forms\Components\Repeater::make('images')
+                                                    ->label('Obrázky')
+                                                    ->schema([
+                                                        FileUpload::make('image')
+                                                            ->label('Obrázek')
+                                                            ->image()
+                                                            ->directory('pages-gallery')
+                                                            ->imageEditor()
+                                                            ->imageResizeMode('cover')
+                                                            ->imageCropAspectRatio('16:9')
+                                                            ->imageResizeTargetWidth('1920')
+                                                            ->imageResizeTargetHeight('1080')
+                                                            ->required(),
+
+                                                        TextInput::make('caption')
+                                                            ->label('Popisek (zobrazí se v lightboxu)')
+                                                            ->placeholder('Např. Interiér restaurace'),
+
+                                                        TextInput::make('alt')
+                                                            ->label('Alt text (pro SEO)')
+                                                            ->placeholder('Popis obrázku pro vyhledávače'),
+                                                    ])
+                                                    ->grid(2)
+                                                    ->defaultItems(1),
+                                            ]),
                                     ])
                                     ->collapsible()
                                     ->columnSpanFull(),

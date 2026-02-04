@@ -142,7 +142,7 @@ class RecipeResource extends Resource
                 Tables\Columns\TextColumn::make('allowed_roles')
                     ->label('Role')
                     ->badge()
-                    ->formatStateUsing(fn ($state): string => match ($state) {
+                    ->formatStateUsing(fn ($state): string => match ((string)$state) {
                         User::TYPE_KITCHEN => 'Kuchyň',
                         User::TYPE_FLOOR => 'Plac',
                         User::TYPE_SUPPORT => 'Pomoc',

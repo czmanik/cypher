@@ -14,23 +14,12 @@ class RecipeResourceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_manager_can_render_recipe_resource_page()
+    public function test_manager_can_access_edit_page_with_multiple_roles()
     {
         $user = User::factory()->create([
             'is_manager' => true,
             'is_active' => true,
-        ]);
-
-        $this->actingAs($user)
-            ->get(RecipeResource::getUrl('index'))
-            ->assertSuccessful();
-    }
-
-    public function test_manager_can_list_recipes_with_roles()
-    {
-        $user = User::factory()->create([
-            'is_manager' => true,
-            'is_active' => true,
+            'employee_type' => User::TYPE_MANAGER,
         ]);
 
         $category = Category::create(['name' => 'Food', 'slug' => 'food', 'is_active' => true]);
@@ -41,13 +30,17 @@ class RecipeResourceTest extends TestCase
             'is_available' => true,
         ]);
 
-        Recipe::create([
+        $recipe = Recipe::create([
             'product_id' => $product->id,
-            'allowed_roles' => [User::TYPE_KITCHEN, User::TYPE_FLOOR],
+            'allowed_roles' => [User::TYPE_KITCHEN, User::TYPE_MANAGER], // Multiple roles!
             'description' => 'Test',
         ]);
 
-        // This should fail if the column logic is wrong
+        $this->actingAs($user)
+            ->get(RecipeResource::getUrl('edit', ['record' => $recipe]))
+            ->assertSuccessful();
+
+        // Also verify List page doesn't crash (returns 200 OK), even if we don't assert content
         $this->actingAs($user)
             ->get(RecipeResource::getUrl('index'))
             ->assertSuccessful();

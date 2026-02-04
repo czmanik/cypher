@@ -91,7 +91,17 @@ class PageResource extends Resource
                                                 TextInput::make('author')->label('Autor'),
                                             ]),
 
-                                        // 4. BLOK: Galerie
+                                        // 4. BLOK: Čistý text
+                                        Builder\Block::make('text')
+                                            ->label('Textový blok')
+                                            ->schema([
+                                                TextInput::make('title')->label('Nadpis (volitelný)'),
+                                                RichEditor::make('content')
+                                                    ->label('Obsah')
+                                                    ->required(),
+                                            ]),
+
+                                        // 5. BLOK: Galerie
                                         Builder\Block::make('gallery')
                                             ->label('Galerie')
                                             ->schema([

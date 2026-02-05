@@ -244,6 +244,14 @@ class RecipeResource extends Resource
             ]);
     }
 
+    // --- ADDED EXPLICIT QUERY METHOD ---
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->withoutGlobalScopes();
+    }
+    // -----------------------------------
+
     protected static function getEmbedHtml($url) {
         if (str_contains($url, 'youtube.com') || str_contains($url, 'youtu.be')) {
             preg_match('/(youtu\.be\/|youtube\.com\/(watch\?(.*&)?v=|(embed|v)\/))([^\?&"\'>]+)/', $url, $matches);

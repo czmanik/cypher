@@ -139,23 +139,24 @@ class RecipeResource extends Resource
                     ->label('Čas')
                     ->toggleable(),
 
-                // Tables\Columns\TextColumn::make('allowed_roles')
-                //     ->label('Role')
-                //     ->badge()
-                //     ->formatStateUsing(fn ($state): string => match ((string)$state) {
-                //         User::TYPE_KITCHEN => 'Kuchyň',
-                //         User::TYPE_FLOOR => 'Plac',
-                //         User::TYPE_SUPPORT => 'Pomoc',
-                //         User::TYPE_MANAGER => 'Manager',
-                //         default => (string) $state,
-                //     })
-                //     ->color(fn (string $state): string => match ($state) {
-                //         User::TYPE_KITCHEN => 'danger',
-                //         User::TYPE_FLOOR => 'warning',
-                //         User::TYPE_SUPPORT => 'gray',
-                //         User::TYPE_MANAGER => 'success',
-                //         default => 'gray',
-                //     }),
+                Tables\Columns\TextColumn::make('allowed_roles')
+                    ->label('Role')
+                    ->badge()
+                    ->separator(',')
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        User::TYPE_KITCHEN => 'Kuchyň',
+                        User::TYPE_FLOOR => 'Plac',
+                        User::TYPE_SUPPORT => 'Pomoc',
+                        User::TYPE_MANAGER => 'Manager',
+                        default => $state,
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        User::TYPE_KITCHEN => 'danger',
+                        User::TYPE_FLOOR => 'warning',
+                        User::TYPE_SUPPORT => 'gray',
+                        User::TYPE_MANAGER => 'success',
+                        default => 'gray',
+                    }),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('role')
@@ -271,14 +272,4 @@ class RecipeResource extends Resource
         ];
     }
 
-    // public static function getEloquentQuery(): Builder
-    // {
-    //     $query = parent::getEloquentQuery();
-
-    //     if (auth()->check() && ! auth()->user()->is_manager) {
-    //         $query->whereJsonContains('allowed_roles', auth()->user()->employee_type);
-    //     }
-
-    //     return $query;
-    // }
 }

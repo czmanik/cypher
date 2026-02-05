@@ -20,12 +20,7 @@ class RecipePolicy
      */
     public function view(User $user, Recipe $recipe): bool
     {
-        if ($user->is_manager) {
-            return true;
-        }
-
-        $allowed = $recipe->allowed_roles ?? [];
-        return in_array($user->employee_type, $allowed);
+        return $user->is_active;
     }
 
     /**

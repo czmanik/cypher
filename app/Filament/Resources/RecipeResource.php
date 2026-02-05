@@ -129,7 +129,7 @@ class RecipeResource extends Resource
                     ->label('Produkt')
                     ->searchable()
                     ->sortable()
-                    ->description(fn (Recipe $record) => $record->product->category->name ?? ''),
+                    ->description(fn (Recipe $record) => $record->product?->category?->name ?? ''),
 
                 Tables\Columns\TextColumn::make('yield')
                     ->label('Výtěžnost')
@@ -143,14 +143,14 @@ class RecipeResource extends Resource
                     ->label('Role')
                     ->badge()
                     ->separator(',')
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                    ->formatStateUsing(fn ($state): string => match ((string) $state) {
                         User::TYPE_KITCHEN => 'Kuchyň',
                         User::TYPE_FLOOR => 'Plac',
                         User::TYPE_SUPPORT => 'Pomoc',
                         User::TYPE_MANAGER => 'Manager',
-                        default => $state,
+                        default => (string) $state,
                     })
-                    ->color(fn (string $state): string => match ($state) {
+                    ->color(fn ($state): string => match ((string) $state) {
                         User::TYPE_KITCHEN => 'danger',
                         User::TYPE_FLOOR => 'warning',
                         User::TYPE_SUPPORT => 'gray',

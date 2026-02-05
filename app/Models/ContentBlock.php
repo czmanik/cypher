@@ -6,5 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class ContentBlock extends Model
 {
-    protected $fillable = ['key', 'title', 'content', 'image_path'];
+    protected $fillable = ['key', 'title', 'content', 'image_path', 'buttons'];
+
+    protected $casts = [
+        'buttons' => 'array',
+    ];
 }

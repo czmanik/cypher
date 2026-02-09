@@ -11,6 +11,7 @@ class Recipe extends Model
     use HasFactory;
 
     protected $fillable = [
+        'name',
         'product_id',
         'yield',
         'prep_time',
@@ -18,13 +19,11 @@ class Recipe extends Model
         'video_url',
         'description',
         'ingredients',
-        'allowed_roles',
         'images',
     ];
 
     protected $casts = [
         'ingredients' => 'array',
-        'allowed_roles' => 'array',
         'images' => 'array',
     ];
 

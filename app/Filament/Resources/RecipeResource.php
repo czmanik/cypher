@@ -30,12 +30,17 @@ class RecipeResource extends Resource
             ->schema([
                 Forms\Components\Section::make('Základní informace')
                     ->schema([
+                        Forms\Components\TextInput::make('name')
+                            ->label('Název receptu')
+                            ->required()
+                            ->maxLength(255)
+                            ->columnSpanFull(),
+
                         Forms\Components\Select::make('product_id')
                             ->relationship('product', 'name')
-                            ->label('Produkt')
+                            ->label('Produkt (nepovinné)')
                             ->searchable()
                             ->preload()
-                            ->required()
                             ->columnSpanFull(),
 
                         Forms\Components\TextInput::make('yield')
@@ -60,21 +65,6 @@ class RecipeResource extends Resource
                             ->placeholder('https://youtube.com/...')
                             ->maxLength(255),
                     ])->columns(2),
-
-                Forms\Components\Section::make('Oprávnění')
-                    ->description('Kdo může tento recept vidět?')
-                    ->schema([
-                        Forms\Components\CheckboxList::make('allowed_roles')
-                            ->label('Povolené role')
-                            ->options([
-                                User::TYPE_KITCHEN => 'Kuchyň',
-                                User::TYPE_FLOOR => 'Plac / Bar',
-                                User::TYPE_SUPPORT => 'Pomocný personál',
-                                User::TYPE_MANAGER => 'Management',
-                            ])
-                            ->columns(2)
-                            ->gridDirection('row'),
-                    ]),
 
                 Forms\Components\Section::make('Ingredience')
                     ->schema([
@@ -125,11 +115,17 @@ class RecipeResource extends Resource
                     ->stacked()
                     ->limit(3),
 
+                Tables\Columns\TextColumn::make('name')
+                    ->label('Název')
+                    ->searchable()
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('product.name')
                     ->label('Produkt')
                     ->searchable()
                     ->sortable()
-                    ->description(fn (Recipe $record) => $record->product->category->name ?? ''),
+                    ->toggleable()
+                    ->description(fn (Recipe $record) => $record->product?->category?->name ?? ''),
 
                 Tables\Columns\TextColumn::make('yield')
                     ->label('Výtěžnost')
@@ -138,36 +134,9 @@ class RecipeResource extends Resource
                 Tables\Columns\TextColumn::make('prep_time')
                     ->label('Čas')
                     ->toggleable(),
-
-                Tables\Columns\TextColumn::make('allowed_roles')
-                    ->label('Role')
-                    ->badge()
-                    ->separator(',')
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        User::TYPE_KITCHEN => 'Kuchyň',
-                        User::TYPE_FLOOR => 'Plac',
-                        User::TYPE_SUPPORT => 'Pomoc',
-                        User::TYPE_MANAGER => 'Manager',
-                        default => $state,
-                    })
-                    ->color(fn (string $state): string => match ($state) {
-                        User::TYPE_KITCHEN => 'danger',
-                        User::TYPE_FLOOR => 'warning',
-                        User::TYPE_SUPPORT => 'gray',
-                        User::TYPE_MANAGER => 'success',
-                        default => 'gray',
-                    }),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('role')
-                    ->label('Dle role')
-                    ->options([
-                        User::TYPE_KITCHEN => 'Kuchyň',
-                        User::TYPE_FLOOR => 'Plac / Bar',
-                        User::TYPE_SUPPORT => 'Pomocný personál',
-                        User::TYPE_MANAGER => 'Management',
-                    ])
-                    ->query(fn ($query, $state) => $query->whereJsonContains('allowed_roles', $state['value'])),
+                //
             ])
             ->actions([
                 Tables\Actions\ViewAction::make(),
@@ -186,6 +155,12 @@ class RecipeResource extends Resource
             ->schema([
                 Infolists\Components\Section::make('Detaily receptu')
                     ->schema([
+                        Infolists\Components\TextEntry::make('name')
+                            ->hiddenLabel()
+                            ->weight('bold')
+                            ->size('lg')
+                            ->columnSpanFull(),
+
                         Infolists\Components\ImageEntry::make('images')
                             ->hiddenLabel()
                             ->columnSpanFull()

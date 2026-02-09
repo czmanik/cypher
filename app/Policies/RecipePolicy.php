@@ -12,7 +12,7 @@ class RecipePolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->is_active;
+        return (bool) $user->is_active;
     }
 
     /**
@@ -20,7 +20,7 @@ class RecipePolicy
      */
     public function view(User $user, Recipe $recipe): bool
     {
-        return $user->is_active;
+        return (bool) $user->is_active;
     }
 
     /**
@@ -28,7 +28,7 @@ class RecipePolicy
      */
     public function create(User $user): bool
     {
-        return $user->is_manager;
+        return (bool) $user->is_manager;
     }
 
     /**
@@ -36,7 +36,7 @@ class RecipePolicy
      */
     public function update(User $user, Recipe $recipe): bool
     {
-        return $user->is_manager;
+        return (bool) $user->is_manager;
     }
 
     /**
@@ -44,6 +44,6 @@ class RecipePolicy
      */
     public function delete(User $user, Recipe $recipe): bool
     {
-        return $user->is_manager;
+        return (bool) $user->is_manager;
     }
 }

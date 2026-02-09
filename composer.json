@@ -15,6 +15,7 @@
         "laravel/tinker": "^2.10.1",
         "saade/filament-fullcalendar": "^3.2",
         "simplesoftwareio/simple-qrcode": "^4.2",
+        "spatie/laravel-activitylog": "^4.11",
         "spatie/laravel-settings": "^3.6"
     },
     "require-dev": {

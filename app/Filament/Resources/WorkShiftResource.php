@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\WorkShiftResource\Pages;
+use App\Filament\Resources\WorkShiftResource\RelationManagers;
 use App\Models\WorkShift;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -12,8 +13,10 @@ use Filament\Tables\Table;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Columns\Summarizers\Sum;
+use Filament\Tables\Columns\Summarizers\Summarizer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 class WorkShiftResource extends Resource
 {
@@ -129,6 +132,29 @@ class WorkShiftResource extends Resource
                     ->alignRight()
                     ->sortable()
                     ->summarize(Sum::make()->money('CZK')->label('Celkem')),
+
+                Tables\Columns\TextColumn::make('bonus_malus')
+                    ->label('Bonus / Malus')
+                    ->state(fn (WorkShift $record) => $record->bonus - $record->penalty)
+                    ->money('CZK')
+                    ->alignRight()
+                    ->color(fn (string $state) => $state < 0 ? 'danger' : ($state > 0 ? 'success' : null))
+                    ->summarize(Summarizer::make()
+                        ->money('CZK')
+                        ->label('Celkem')
+                        ->using(fn ($query) => $query->sum(DB::raw('bonus - penalty')))
+                    ),
+
+                Tables\Columns\TextColumn::make('final_payout')
+                    ->label('K výplatě')
+                    ->money('CZK')
+                    ->alignRight()
+                    ->weight('bold')
+                    ->summarize(Summarizer::make()
+                        ->money('CZK')
+                        ->label('Celkem')
+                        ->using(fn ($query) => $query->sum(DB::raw('calculated_wage + bonus - penalty - advance_amount')))
+                    ),
 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
@@ -318,11 +344,19 @@ class WorkShiftResource extends Resource
             ]);
     }
 
+    public static function getRelations(): array
+    {
+        return [
+            RelationManagers\ActivitiesRelationManager::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListWorkShifts::route('/'),
             'create' => Pages\CreateWorkShift::route('/create'),
+            'view' => Pages\ViewWorkShift::route('/{record}'),
             'edit' => Pages\EditWorkShift::route('/{record}/edit'),
         ];
     }

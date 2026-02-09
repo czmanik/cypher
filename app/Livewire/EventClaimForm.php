@@ -22,6 +22,7 @@ class EventClaimForm extends Component
     public $email = '';
     public $phone = '';
     public $instagram = '';
+    public bool $gdpr_consent = false;
 
     public function mount(Event $event)
     {
@@ -54,8 +55,13 @@ class EventClaimForm extends Component
             $rules['instagram'] = 'required|min:3';
         }
 
+        // GDPR je vždy povinné
+        $rules['gdpr_consent'] = 'accepted';
+
         if (!empty($rules)) {
-            $this->validate($rules);
+            $this->validate($rules, [
+                'gdpr_consent.accepted' => 'Musíte souhlasit se zpracováním osobních údajů.'
+            ]);
         }
 
         // 2. Kontrola kapacity těsně před zápisem (pro jistotu)
@@ -67,9 +73,9 @@ class EventClaimForm extends Component
         // 3. Vytvoření nároku (Voucheru)
         $token = Str::random(32); // Unikátní kód pro QR
 
-        // Generování krátkého kódu (6 znaků)
+        // Generování krátkého kódu (4 znaky: čísla a písmena)
         do {
-            $code = Str::upper(Str::random(6));
+            $code = Str::upper(Str::random(4));
         } while (EventClaim::where('code', $code)->exists());
 
         EventClaim::create([
@@ -79,12 +85,12 @@ class EventClaimForm extends Component
             'instagram' => $this->instagram,
             'claim_token' => $token,
             'code' => $code,
+            'gdpr_consent' => $this->gdpr_consent,
         ]);
 
         $this->claimCode = $code;
 
         // 4. Vygenerování QR kódu
-        // PŘIDAT (string) PŘED VOLÁNÍ FUNKCE
         $this->qrCodeSvg = (string) QrCode::size(200)
             ->color(0, 0, 0)
             ->generate($token);

@@ -21,16 +21,28 @@ class EventClaimResource extends Resource
     protected static ?string $navigationGroup = 'Marketing & Data'; // Nová skupina v menu
     protected static ?string $navigationLabel = 'Získané kontakty';
 
-    // Formulář necháme jen pro čtení (readonly), data měnit nechceme
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('email')->readOnly(),
-                Forms\Components\TextInput::make('phone')->readOnly(),
-                Forms\Components\TextInput::make('instagram')->readOnly(),
-                Forms\Components\DateTimePicker::make('created_at')->label('Vytvořeno')->readOnly(),
-                Forms\Components\TextInput::make('claim_token')->label('Kód')->readOnly(),
+                Forms\Components\TextInput::make('email')
+                    ->email()
+                    ->required(),
+                Forms\Components\TextInput::make('phone'),
+                Forms\Components\TextInput::make('instagram'),
+                Forms\Components\Textarea::make('staff_note')
+                    ->label('Poznámka personálu')
+                    ->rows(3)
+                    ->columnSpanFull(),
+                Forms\Components\DateTimePicker::make('created_at')
+                    ->label('Vytvořeno')
+                    ->readOnly(),
+                Forms\Components\TextInput::make('claim_token')
+                    ->label('Kód')
+                    ->readOnly(),
+                Forms\Components\Toggle::make('gdpr_consent')
+                    ->label('GDPR Souhlas')
+                    ->disabled(), // Souhlas by se neměl měnit
             ]);
     }
 
@@ -71,6 +83,11 @@ class EventClaimResource extends Resource
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-clock')
                     ->color(fn ($state) => $state ? 'success' : 'warning'),
+
+                 Tables\Columns\TextColumn::make('staff_note')
+                    ->label('Poznámka')
+                    ->limit(20)
+                    ->toggleable(),
             ])
             ->filters([
                 // 1. Filtr podle Kampaně
@@ -100,6 +117,29 @@ class EventClaimResource extends Resource
                                 fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
                             );
                     })
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+
+                Tables\Actions\Action::make('confirm')
+                    ->label('Potvrdit')
+                    ->icon('heroicon-o-check')
+                    ->color('success')
+                    ->visible(fn (EventClaim $record) => is_null($record->redeemed_at))
+                    ->requiresConfirmation()
+                    ->modalHeading('Potvrdit uplatnění voucheru')
+                    ->modalDescription('Opravdu chcete označit tento voucher jako uplatněný?')
+                    ->action(fn (EventClaim $record) => $record->update(['redeemed_at' => now()])),
+
+                Tables\Actions\Action::make('history')
+                    ->label('Historie')
+                    ->icon('heroicon-o-clock')
+                    ->color('info')
+                    ->modalContent(fn (EventClaim $record) => view('filament.pages.actions.customer-history', [
+                        'claims' => EventClaim::where('email', $record->email)->orderBy('created_at', 'desc')->get()
+                    ]))
+                    ->modalSubmitAction(false) // Skrýt tlačítko "Potvrdit"
+                    ->modalCancelActionLabel('Zavřít'),
             ]);
     }
     
@@ -108,7 +148,7 @@ class EventClaimResource extends Resource
     {
         return [
             'index' => Pages\ListEventClaims::route('/'),
-            // Create a Edit nepotřebujeme, lidi se registrují sami
+            // 'edit' => Pages\EditEventClaim::route('/{record}/edit'), // Default modal edit is enough? Filament needs page for EditAction if using route, but modal doesn't.
         ];
     }
 }

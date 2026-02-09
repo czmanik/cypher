@@ -15,7 +15,7 @@ class ScanVoucherTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_can_scan_voucher()
+    public function test_can_scan_voucher_and_confirm()
     {
         $user = User::factory()->create();
         $voucher = Voucher::create([
@@ -23,17 +23,26 @@ class ScanVoucherTest extends TestCase
             'value' => 500,
         ]);
 
-        Livewire::actingAs($user)
+        $component = Livewire::actingAs($user)
             ->test(ScanVoucher::class)
             ->call('checkCode', 'VOUCHER123')
-            ->assertSee('úspěšně uplatněn')
+            ->assertSet('scannedType', 'voucher')
+            ->assertSet('scannedId', $voucher->id)
+            ->assertSee('Hodnotový Voucher')
             ->assertHasNoErrors();
+
+        // Not redeemed yet
+        $this->assertNull($voucher->fresh()->used_at);
+
+        // Confirm
+        $component->call('confirmRedemption')
+            ->assertSee('úspěšně uplatněn');
 
         $this->assertNotNull($voucher->fresh()->used_at);
         $this->assertEquals($user->id, $voucher->fresh()->used_by_user_id);
     }
 
-    public function test_can_scan_event_claim_qr_token()
+    public function test_can_scan_event_claim_qr_token_and_confirm()
     {
         $event = Event::create([
             'title' => 'Test Event',
@@ -45,17 +54,30 @@ class ScanVoucherTest extends TestCase
             'event_id' => $event->id,
             'claim_token' => 'long_token_string',
             'code' => 'SHORT1',
+            'email' => 'test@example.com',
+            'phone' => '123456789',
         ]);
 
-        Livewire::test(ScanVoucher::class)
+        $component = Livewire::test(ScanVoucher::class)
             ->call('checkCode', 'long_token_string')
-            ->assertSee('úspěšně uplatněn')
+            ->assertSet('scannedType', 'claim')
+            ->assertSet('scannedId', $claim->id)
+            ->assertSee('Test Event')
             ->assertHasNoErrors();
 
+        // Not redeemed yet
+        $this->assertNull($claim->fresh()->redeemed_at);
+
+        // Confirm with note
+        $component->set('staffNote', 'VIP Customer')
+            ->call('confirmRedemption')
+            ->assertSee('úspěšně uplatněn');
+
         $this->assertNotNull($claim->fresh()->redeemed_at);
+        $this->assertEquals('VIP Customer', $claim->fresh()->staff_note);
     }
 
-    public function test_can_scan_event_claim_manual_code()
+    public function test_can_scan_event_claim_manual_code_and_confirm()
     {
         $event = Event::create([
             'title' => 'Test Event 2',
@@ -66,13 +88,20 @@ class ScanVoucherTest extends TestCase
         $claim = EventClaim::create([
             'event_id' => $event->id,
             'claim_token' => 'another_token',
-            'code' => 'ABCDEF',
+            'code' => 'ABCD',
+            'email' => 'manual@example.com',
+            'phone' => '987654321',
         ]);
 
-        Livewire::test(ScanVoucher::class)
-            ->call('checkCode', 'ABCDEF')
-            ->assertSee('úspěšně uplatněn')
+        $component = Livewire::test(ScanVoucher::class)
+            ->call('checkCode', 'ABCD')
+            ->assertSet('scannedType', 'claim')
+            ->assertSet('scannedId', $claim->id)
+            ->assertSee('Test Event 2')
             ->assertHasNoErrors();
+
+        // Confirm
+        $component->call('confirmRedemption');
 
         $this->assertNotNull($claim->fresh()->redeemed_at);
     }
@@ -89,11 +118,14 @@ class ScanVoucherTest extends TestCase
             'event_id' => $event->id,
             'claim_token' => 'token',
             'code' => 'CODE',
+            'email' => 'twice@example.com',
+            'phone' => '111222333',
             'redeemed_at' => now()->subMinute(),
         ]);
 
         Livewire::test(ScanVoucher::class)
             ->call('checkCode', 'CODE')
+            ->assertHasErrors(['manualCode'])
             ->assertSee('už uplatněna');
     }
 }

@@ -21,6 +21,20 @@ class ScanVoucher extends Component
 
     public function checkCode($code)
     {
+        // When form submits, $code might be passed as argument if we use wire:submit="checkCode(manualCode)"
+        // But if we call it from scanner, we pass the scanned text.
+        // If the form submits, it passes the value of manualCode property if bound?
+        // No, checkCode(manualCode) passes the Alpine/JS value?
+        // Wait, wire:submit="checkCode(manualCode)" - manualCode here refers to the Livewire property?
+        // No, in Blade `manualCode` is treated as a JS variable if not $manualCode.
+        // BUT wire:model="manualCode" updates the backend property.
+
+        // Let's simplify. If we use wire:submit="submitManual", we can use $this->manualCode inside.
+
+        if (empty($code) && !empty($this->manualCode)) {
+            $code = $this->manualCode;
+        }
+
         $code = trim((string) $code);
         $this->resetErrorBag();
         $this->reset('scannedType', 'scannedId', 'scannedData', 'staffNote');
@@ -75,6 +89,11 @@ class ScanVoucher extends Component
 
         // 3. Nenalezeno
         $this->addError('manualCode', "Kód '{$code}' neexistuje!");
+    }
+
+    // Wrapper for manual submission to ensure property usage
+    public function submitManual() {
+        $this->checkCode($this->manualCode);
     }
 
     public function confirmRedemption()

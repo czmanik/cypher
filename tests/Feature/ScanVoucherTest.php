@@ -25,6 +25,11 @@ class ScanVoucherTest extends TestCase
 
         $component = Livewire::actingAs($user)
             ->test(ScanVoucher::class)
+            // Need to set manualCode before calling checkCode if we simulate form submission?
+            // No, calling the method directly should work, BUT
+            // if checkCode relies on $this->manualCode being set via wire:model,
+            // calling checkCode($arg) works IF the method accepts an arg.
+            // My updated method accepts $code.
             ->call('checkCode', 'VOUCHER123')
             ->assertSet('scannedType', 'voucher')
             ->assertSet('scannedId', $voucher->id)
@@ -94,6 +99,10 @@ class ScanVoucherTest extends TestCase
         ]);
 
         $component = Livewire::test(ScanVoucher::class)
+            // When user types in input, manualCode is updated (deferred).
+            // When form submits, it calls checkCode(manualCode).
+            // So we should simulate that.
+            ->set('manualCode', 'ABCD')
             ->call('checkCode', 'ABCD')
             ->assertSet('scannedType', 'claim')
             ->assertSet('scannedId', $claim->id)

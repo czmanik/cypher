@@ -18,19 +18,38 @@ class EventClaimResource extends Resource
     protected static ?string $model = EventClaim::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
-    protected static ?string $navigationGroup = 'Marketing & Data'; // Nová skupina v menu
+    protected static ?string $navigationGroup = 'Marketing & Data';
     protected static ?string $navigationLabel = 'Získané kontakty';
 
-    // Formulář necháme jen pro čtení (readonly), data měnit nechceme
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('email')->readOnly(),
-                Forms\Components\TextInput::make('phone')->readOnly(),
-                Forms\Components\TextInput::make('instagram')->readOnly(),
-                Forms\Components\DateTimePicker::make('created_at')->label('Vytvořeno')->readOnly(),
-                Forms\Components\TextInput::make('claim_token')->label('Kód')->readOnly(),
+                Forms\Components\TextInput::make('email')
+                    ->email()
+                    ->required(),
+                Forms\Components\TextInput::make('phone'),
+                Forms\Components\TextInput::make('instagram'),
+                Forms\Components\Textarea::make('staff_note')
+                    ->label('Poznámka personálu')
+                    ->rows(3)
+                    ->columnSpanFull(),
+                Forms\Components\DateTimePicker::make('created_at')
+                    ->label('Vytvořeno')
+                    ->readOnly(),
+
+                // Zde měníme claim_token za code
+                Forms\Components\TextInput::make('code')
+                    ->label('Kód') // 4-místný kód
+                    ->readOnly(),
+                Forms\Components\TextInput::make('claim_token')
+                    ->label('QR Token') // Dlouhý hash
+                    ->readOnly()
+                    ->columnSpanFull(),
+
+                Forms\Components\Toggle::make('gdpr_consent')
+                    ->label('GDPR Souhlas')
+                    ->disabled(),
             ]);
     }
 
@@ -39,51 +58,55 @@ class EventClaimResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-                // Sloupec Akce
                 Tables\Columns\TextColumn::make('event.title')
                     ->label('Kampaň')
                     ->sortable()
                     ->searchable(),
 
-                // Kontaktní údaje (umožníme hledat podle všech)
+                // Přidáme zobrazení krátkého kódu v tabulce
+                Tables\Columns\TextColumn::make('code')
+                    ->label('Kód')
+                    ->sortable()
+                    ->searchable()
+                    ->badge()
+                    ->color('info'),
+
                 Tables\Columns\TextColumn::make('email')
                     ->searchable()
                     ->icon('heroicon-m-envelope'),
                     
                 Tables\Columns\TextColumn::make('phone')
                     ->searchable()
-                    ->toggleable(), // Lze skrýt
+                    ->toggleable(),
                     
                 Tables\Columns\TextColumn::make('instagram')
                     ->searchable()
                     ->toggleable(),
 
-                // Kdy to vzniklo
                 Tables\Columns\TextColumn::make('created_at')
                     ->label('Datum registrace')
                     ->dateTime('d.m.Y H:i')
                     ->sortable(),
 
-                // Stav (Uplatněno / Neuplatněno)
                 Tables\Columns\IconColumn::make('redeemed_at')
                     ->label('Uplatněno?')
                     ->boolean()
                     ->trueIcon('heroicon-o-check-circle')
                     ->falseIcon('heroicon-o-clock')
                     ->color(fn ($state) => $state ? 'success' : 'warning'),
+
+                 Tables\Columns\TextColumn::make('staff_note')
+                    ->label('Poznámka')
+                    ->limit(20)
+                    ->toggleable(),
             ])
             ->filters([
-                // 1. Filtr podle Kampaně
                 SelectFilter::make('event')
                     ->label('Kampaň')
                     ->relationship('event', 'title'),
-
-                // 2. Filtr "Jen uplatněné"
                 Filter::make('redeemed')
                     ->label('Jen uplatněné vouchery')
                     ->query(fn (Builder $query): Builder => $query->whereNotNull('redeemed_at')),
-                
-                // 3. Filtr podle data (Dnes, Tento týden...)
                  Filter::make('created_at')
                     ->form([
                         Forms\Components\DatePicker::make('created_from')->label('Od data'),
@@ -100,15 +123,36 @@ class EventClaimResource extends Resource
                                 fn (Builder $query, $date): Builder => $query->whereDate('created_at', '<=', $date),
                             );
                     })
+            ])
+            ->actions([
+                Tables\Actions\EditAction::make(),
+
+                Tables\Actions\Action::make('confirm')
+                    ->label('Potvrdit')
+                    ->icon('heroicon-o-check')
+                    ->color('success')
+                    ->visible(fn (EventClaim $record) => is_null($record->redeemed_at))
+                    ->requiresConfirmation()
+                    ->modalHeading('Potvrdit uplatnění voucheru')
+                    ->modalDescription('Opravdu chcete označit tento voucher jako uplatněný?')
+                    ->action(fn (EventClaim $record) => $record->update(['redeemed_at' => now()])),
+
+                Tables\Actions\Action::make('history')
+                    ->label('Historie')
+                    ->icon('heroicon-o-clock')
+                    ->color('info')
+                    ->modalContent(fn (EventClaim $record) => view('filament.pages.actions.customer-history', [
+                        'claims' => EventClaim::where('email', $record->email)->orderBy('created_at', 'desc')->get()
+                    ]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Zavřít'),
             ]);
     }
     
-    // ... getPages ...
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListEventClaims::route('/'),
-            // Create a Edit nepotřebujeme, lidi se registrují sami
         ];
     }
 }

@@ -13,7 +13,7 @@
             @if($claimCode)
                 <div class="mt-4">
                     <p class="text-sm text-gray-500 mb-1">Kód pro obsluhu:</p>
-                    <div class="font-mono text-2xl font-bold text-gray-900 bg-white px-6 py-2 rounded-lg inline-block border-2 border-dashed border-gray-300 tracking-wider">
+                    <div class="font-mono text-4xl font-bold text-gray-900 bg-white px-8 py-4 rounded-lg inline-block border-2 border-dashed border-gray-300 tracking-widest">
                         {{ $claimCode }}
                     </div>
                 </div>
@@ -76,7 +76,7 @@
                         @if(in_array('email', $event->required_fields ?? []))
                             <div>
                                 <label class="block text-sm font-bold mb-1">Email</label>
-                                <input wire:model="email" type="email" class="w-full border-gray-300 rounded focus:border-cypher-gold focus:ring-cypher-gold">
+                                <input wire:model="email" type="email" class="w-full border-2 border-gray-400 rounded focus:border-cypher-gold focus:ring-cypher-gold">
                                 @error('email') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                             </div>
                         @endif
@@ -84,7 +84,7 @@
                         @if(in_array('phone', $event->required_fields ?? []))
                             <div>
                                 <label class="block text-sm font-bold mb-1">Telefon</label>
-                                <input wire:model="phone" type="text" class="w-full border-gray-300 rounded focus:border-cypher-gold focus:ring-cypher-gold">
+                                <input wire:model="phone" type="text" class="w-full border-2 border-gray-400 rounded focus:border-cypher-gold focus:ring-cypher-gold">
                                 @error('phone') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                             </div>
                         @endif
@@ -92,19 +92,23 @@
                         @if(in_array('instagram', $event->required_fields ?? []))
                             <div>
                                 <label class="block text-sm font-bold mb-1">Instagram (@profil)</label>
-                                <input wire:model="instagram" type="text" class="w-full border-gray-300 rounded focus:border-cypher-gold focus:ring-cypher-gold">
+                                <input wire:model="instagram" type="text" class="w-full border-2 border-gray-400 rounded focus:border-cypher-gold focus:ring-cypher-gold">
                                 @error('instagram') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                             </div>
                         @endif
 
-                        {{-- Pokud není nic vyžadováno, zobrazíme jen info --}}
-                        @if(empty($event->required_fields))
-                            <p class="text-green-600 font-medium">Registrace není nutná. Klikněte pro získání kódu.</p>
-                        @endif
+                        <div class="flex items-start gap-2 pt-2">
+                             <input type="checkbox" wire:model="gdpr_consent" id="gdpr_consent" class="mt-1 border-2 border-gray-400 rounded text-cypher-gold focus:ring-cypher-gold">
+                             <label for="gdpr_consent" class="text-sm text-gray-600 leading-tight">
+                                 Souhlasím se zpracováním osobních údajů pro marketingové účely.
+                             </label>
+                        </div>
+                        @error('gdpr_consent') <span class="text-red-500 text-xs block">{{ $message }}</span> @enderror
+
 
                         @error('capacity') <span class="text-red-500 text-center block font-bold">{{ $message }}</span> @enderror
 
-                        <button type="submit" class="w-full bg-black text-white font-bold py-3 rounded hover:bg-cypher-gold hover:text-black transition-colors">
+                        <button type="submit" class="w-full bg-black text-white font-bold py-3 rounded hover:bg-cypher-gold hover:text-black transition-colors mt-4">
                             <span wire:loading.remove>Získat QR Kód</span>
                             <span wire:loading>Zpracovávám...</span>
                         </button>

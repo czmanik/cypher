@@ -48,18 +48,20 @@ class WorkShiftResource extends Resource
                             ->required()
                             ->searchable()
                             ->columnSpan(2)
-                            // Zaměstnanec nemůže měnit uživatele (pokud by se dostal k vytvoření)
-                            ->disabled(fn () => ! auth()->user()?->is_manager),
+                            // Zaměstnanec nemůže měnit uživatele
+                            // Pokud je směna Approved nebo Paid, nelze měnit uživatele
+                            ->disabled(fn ($record) => ! auth()->user()?->is_manager || ($record && in_array($record->status, ['approved', 'paid']))),
 
                         Forms\Components\DateTimePicker::make('start_at')
                             ->label('Začátek')
                             ->required()
-                            ->disabled(fn () => ! auth()->user()?->is_manager),
+                            // Pokud je směna Approved nebo Paid, nelze měnit časy
+                            ->disabled(fn ($record) => ! auth()->user()?->is_manager || ($record && in_array($record->status, ['approved', 'paid']))),
 
                         Forms\Components\DateTimePicker::make('end_at')
                             ->label('Konec')
                             ->helperText('Pokud nevyplníte, směna stále běží.')
-                            ->disabled(fn () => ! auth()->user()?->is_manager),
+                            ->disabled(fn ($record) => ! auth()->user()?->is_manager || ($record && in_array($record->status, ['approved', 'paid']))),
 
                         Forms\Components\Select::make('status')
                             ->options([
@@ -78,26 +80,87 @@ class WorkShiftResource extends Resource
                     ->schema([
                         Forms\Components\Textarea::make('general_note')
                             ->label('Poznámka od zaměstnance')
-                            ->disabled(fn () => ! auth()->user()?->is_manager), // Povolíme jen přes widget? Nebo necháme editovat? Nechme jen číst, editace přes widget/tlačítka.
+                            // Admin ani Manager nemohou editovat poznámku zaměstnance
+                            ->disabled(),
                         
                         Forms\Components\Textarea::make('manager_note')
                             ->label('Interní poznámka manažera')
                             ->disabled(fn () => ! auth()->user()?->is_manager),
                     ])->columns(2),
                 
-                Forms\Components\Section::make('Finance (Automatický výpočet)')
+                Forms\Components\Section::make('Finance')
                     ->schema([
-                        Forms\Components\TextInput::make('total_hours')
-                            ->label('Celkem hodin')
-                            ->suffix('h')
-                            ->disabled(),
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('bonus')
+                                    ->label('Bonus (+)')
+                                    ->numeric()
+                                    ->prefix('Kč')
+                                    ->default(0)
+                                    ->live()
+                                    ->disabled(fn ($record) => ! auth()->user()?->is_manager || ($record && $record->status === 'paid')),
+
+                                Forms\Components\Textarea::make('bonus_note')
+                                    ->label('Důvod bonusu')
+                                    ->rows(1)
+                                    ->required(fn (Forms\Get $get) => (float)$get('bonus') > 0)
+                                    ->visible(fn (Forms\Get $get) => (float)$get('bonus') > 0)
+                                    ->disabled(fn ($record) => ! auth()->user()?->is_manager || ($record && $record->status === 'paid')),
+                            ]),
+
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('penalty')
+                                    ->label('Pokuta / Malus (-)')
+                                    ->numeric()
+                                    ->prefix('Kč')
+                                    ->default(0)
+                                    ->live()
+                                    ->disabled(fn ($record) => ! auth()->user()?->is_manager || ($record && $record->status === 'paid')),
+
+                                Forms\Components\Textarea::make('penalty_note')
+                                    ->label('Důvod pokuty')
+                                    ->rows(1)
+                                    ->required(fn (Forms\Get $get) => (float)$get('penalty') > 0)
+                                    ->visible(fn (Forms\Get $get) => (float)$get('penalty') > 0)
+                                    ->disabled(fn ($record) => ! auth()->user()?->is_manager || ($record && $record->status === 'paid')),
+                            ]),
+
+                        Forms\Components\TextInput::make('advance_amount')
+                            ->label('Záloha (již vyplaceno)')
+                            ->numeric()
+                            ->prefix('Kč')
+                            ->default(0)
+                            ->disabled(fn ($record) => ! auth()->user()?->is_manager || ($record && $record->status === 'paid')),
+
+                        Forms\Components\Grid::make(2)
+                            ->schema([
+                                Forms\Components\TextInput::make('total_hours')
+                                    ->label('Celkem hodin')
+                                    ->suffix('h')
+                                    ->disabled(),
+
+                                Forms\Components\TextInput::make('calculated_wage')
+                                    ->label('Základní mzda')
+                                    ->suffix('Kč')
+                                    ->disabled(),
+                            ]),
                         
-                        Forms\Components\TextInput::make('calculated_wage')
-                            ->label('K výplatě')
-                            ->suffix('Kč')
-                            ->disabled(),
-                    ])->columns(2)
-                    ->collapsed(),
+                        Forms\Components\Placeholder::make('final_payout_preview')
+                            ->label('K výplatě (Celkem)')
+                            ->content(fn ($record, Forms\Get $get) =>
+                                number_format(
+                                    max(0,
+                                        (float)($record?->calculated_wage ?? 0) +
+                                        (float)$get('bonus') -
+                                        (float)$get('penalty') -
+                                        (float)$get('advance_amount')
+                                    ), 2, ',', ' '
+                                ) . ' Kč'
+                            )
+                            ->extraAttributes(['class' => 'text-xl font-bold text-success-600']),
+                    ])
+                    ->collapsed(false),
             ]);
     }
 
@@ -174,8 +237,14 @@ class WorkShiftResource extends Resource
                         default => $state,
                     }),
             ])
+            ->recordClasses(fn (WorkShift $record) => match ($record->status) {
+                'paid' => 'opacity-60 bg-gray-50 dark:bg-gray-800',
+                'rejected' => 'opacity-70 bg-red-50 dark:bg-red-900/20',
+                default => null,
+            })
             ->defaultSort('start_at', 'desc')
             ->filters([
+                Tables\Filters\TrashedFilter::make(),
                 SelectFilter::make('user_id')
                     ->label('Zaměstnanec')
                     ->relationship('user', 'name')
@@ -217,9 +286,22 @@ class WorkShiftResource extends Resource
                     ->modalCancelActionLabel('Zavřít')
                     ->modalContent(fn (WorkShift $record) => view('filament.resources.work-shift-resource.pages.shift-detail-modal', ['record' => $record])),
 
+                Tables\Actions\Action::make('print')
+                    ->label('Tisk')
+                    ->icon('heroicon-o-printer')
+                    ->color('gray')
+                    ->url(fn (WorkShift $record) => route('work-shifts.print', $record))
+                    ->openUrlInNewTab(),
+
                 Tables\Actions\EditAction::make()
                     ->visible(fn () => auth()->user()?->is_manager),
                 
+                Tables\Actions\RestoreAction::make()
+                    ->visible(fn () => auth()->user()?->is_manager),
+
+                Tables\Actions\ForceDeleteAction::make()
+                    ->visible(fn () => auth()->user()?->is_manager),
+
                 Tables\Actions\Action::make('approve')
                     ->label('Schválit')
                     ->icon('heroicon-o-check')
@@ -312,6 +394,12 @@ class WorkShiftResource extends Resource
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make()
+                        ->visible(fn () => auth()->user()?->is_manager),
+
+                    Tables\Actions\RestoreBulkAction::make()
+                        ->visible(fn () => auth()->user()?->is_manager),
+
+                    Tables\Actions\ForceDeleteBulkAction::make()
                         ->visible(fn () => auth()->user()?->is_manager),
                     
                     Tables\Actions\BulkAction::make('approve_all')

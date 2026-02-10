@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Carbon\Carbon;
 use Spatie\Activitylog\Traits\LogsActivity;
 use Spatie\Activitylog\LogOptions;
@@ -12,6 +13,7 @@ use Spatie\Activitylog\LogOptions;
 class WorkShift extends Model
 {
     use LogsActivity;
+    use SoftDeletes;
 
     protected $guarded = [];
 
@@ -45,6 +47,7 @@ class WorkShift extends Model
             'created' => 'vytvořena',
             'updated' => 'upravena',
             'deleted' => 'smazána',
+            'restored' => 'obnovena',
             default => $eventName,
         });
     }
@@ -72,7 +75,7 @@ class WorkShift extends Model
     public function getFinalPayoutAttribute(): float
     {
         // prevent negative payout
-        return max(0, $this->calculated_wage + $this->bonus - $this->penalty - $this->advance_amount);
+        return max(0, (float)$this->calculated_wage + (float)$this->bonus - (float)$this->penalty - (float)$this->advance_amount);
     }
 
     /**

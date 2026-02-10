@@ -1,7 +1,7 @@
 <x-filament-panels::page>
-    <div class="flex flex-col md:flex-row gap-6">
+    <div class="flex flex-col-reverse lg:flex-row gap-6">
         <!-- Main Grid Area -->
-        <div class="flex-1">
+        <div class="flex-1 min-w-0">
             @php
                 // Group items by category for display
                 $groupedItems = $this->items->groupBy('category');
@@ -12,7 +12,7 @@
                     <h2 class="text-xl font-bold mb-4 capitalize">
                         {{ $category === 'ingredient' ? 'Ingredience' : 'Spotřebák' }}
                     </h2>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                         @foreach($categoryItems as $item)
                             <div
                                 wire:click="toggleItem({{ $item->id }})"
@@ -46,8 +46,8 @@
         </div>
 
         <!-- Sidebar / Summary -->
-        <div class="w-full md:w-80 flex-shrink-0">
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 sticky top-6">
+        <div class="w-full lg:w-80 flex-shrink-0">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 lg:sticky lg:top-24 z-10">
                 <h3 class="text-lg font-bold mb-4">K výdeji</h3>
 
                 @if(empty($this->selectedItems))

@@ -51,12 +51,24 @@
             </div>
 
             <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <a href="{{ route('menu') }}" class="px-8 py-4 bg-cypher-gold text-black font-bold uppercase tracking-wide hover:bg-white transition-all transform hover:-translate-y-1">
-                    {{ $isNight ? 'Drink Menu' : 'Nabídka Kávy' }}
-                </a>
-                <a href="{{ route('reservations.create') }}" class="px-8 py-4 border border-white/40 text-white font-bold uppercase tracking-wide hover:bg-white hover:text-black transition-all backdrop-blur-sm">
-                    Rezervovat stůl
-                </a>
+                @if($heroBlock && !empty($heroBlock->buttons))
+                    @foreach($heroBlock->buttons as $button)
+                        <a href="{{ $button['url'] }}"
+                           class="{{ ($button['style'] ?? 'primary') === 'primary'
+                               ? 'px-8 py-4 bg-cypher-gold text-black font-bold uppercase tracking-wide hover:bg-white transition-all transform hover:-translate-y-1'
+                               : 'px-8 py-4 border border-white/40 text-white font-bold uppercase tracking-wide hover:bg-white hover:text-black transition-all backdrop-blur-sm' }}">
+                            {{ $button['label'] }}
+                        </a>
+                    @endforeach
+                @else
+                    {{-- FALLBACK (pokud nejsou tlačítka nastavená v adminu) --}}
+                    <a href="{{ route('menu') }}" class="px-8 py-4 bg-cypher-gold text-black font-bold uppercase tracking-wide hover:bg-white transition-all transform hover:-translate-y-1">
+                        {{ $isNight ? 'Drink Menu' : 'Nabídka Kávy' }}
+                    </a>
+                    <a href="{{ route('reservations.create') }}" class="px-8 py-4 border border-white/40 text-white font-bold uppercase tracking-wide hover:bg-white hover:text-black transition-all backdrop-blur-sm">
+                        Rezervovat stůl
+                    </a>
+                @endif
             </div>
         </div>
     </section>

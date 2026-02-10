@@ -42,6 +42,27 @@ class ContentBlockResource extends Resource
                     ->label('Textový obsah')
                     ->fileAttachmentsDirectory('content_images')
                     ->columnSpanFull(),
+
+                Forms\Components\Repeater::make('buttons')
+                    ->label('Tlačítka')
+                    ->schema([
+                        Forms\Components\TextInput::make('label')
+                            ->label('Text tlačítka')
+                            ->required(),
+                        Forms\Components\TextInput::make('url')
+                            ->label('Odkaz (URL)')
+                            ->required(),
+                        Forms\Components\Select::make('style')
+                            ->label('Styl')
+                            ->options([
+                                'primary' => 'Zlaté (Primary)',
+                                'secondary' => 'Průhledné (Secondary)',
+                            ])
+                            ->default('primary')
+                            ->required(),
+                    ])
+                    ->columns(3)
+                    ->columnSpanFull(),
             ]);
     }
 

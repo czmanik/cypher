@@ -6,9 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Carbon\Carbon;
+use Spatie\Activitylog\Traits\LogsActivity;
+use Spatie\Activitylog\LogOptions;
 
 class WorkShift extends Model
 {
+    use LogsActivity;
+
     protected $guarded = [];
 
     protected $casts = [
@@ -30,6 +34,20 @@ class WorkShift extends Model
 
     const PAYMENT_METHOD_CASH = 'cash';
     const PAYMENT_METHOD_BANK_TRANSFER = 'bank_transfer';
+
+    public function getActivitylogOptions(): LogOptions
+    {
+        return LogOptions::defaults()
+        ->logOnly(['status', 'start_at', 'end_at', 'bonus', 'penalty', 'advance_amount', 'user_id', 'total_hours', 'calculated_wage', 'note', 'manager_note'])
+        ->logOnlyDirty()
+        ->dontSubmitEmptyLogs()
+        ->setDescriptionForEvent(fn(string $eventName) => "Směna byla " . match($eventName) {
+            'created' => 'vytvořena',
+            'updated' => 'upravena',
+            'deleted' => 'smazána',
+            default => $eventName,
+        });
+    }
 
     public function user(): BelongsTo
     {

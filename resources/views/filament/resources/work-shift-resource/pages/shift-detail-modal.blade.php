@@ -124,4 +124,46 @@
             </table>
         </div>
     </div>
+
+    {{-- Activity Log --}}
+    <div class="border rounded-lg dark:border-gray-700 mt-6">
+        <div class="px-4 py-2 bg-gray-100 dark:bg-gray-700 font-semibold text-gray-900 dark:text-white rounded-t-lg">
+            Historie změn
+        </div>
+        <div class="p-4 space-y-4 max-h-60 overflow-y-auto">
+            @forelse($record->activities()->latest()->get() as $activity)
+                <div class="border-l-4 border-gray-300 pl-4 py-2">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="font-bold text-sm text-gray-800 dark:text-gray-200">
+                            {{ $activity->causer?->name ?? 'Systém' }}
+                        </span>
+                        <span class="text-xs text-gray-500">
+                            {{ $activity->created_at->format('d.m.Y H:i') }}
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-600 dark:text-gray-400">
+                        {{ ucfirst($activity->description) }}
+                    </p>
+                    @if($activity->properties->has('attributes'))
+                        <div class="mt-1 text-xs text-gray-500">
+                            @foreach($activity->properties['attributes'] as $key => $newVal)
+                                @php
+                                    $oldVal = $activity->properties['old'][$key] ?? null;
+                                    if($newVal == $oldVal) continue;
+                                @endphp
+                                <div>
+                                    <strong>{{ $key }}:</strong>
+                                    <span class="line-through text-red-400">{{ $oldVal ?? '---' }}</span>
+                                    ➝
+                                    <span class="text-green-600 font-medium">{{ $newVal }}</span>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </div>
+            @empty
+                <div class="text-sm text-gray-500 text-center">Žádné změny.</div>
+            @endforelse
+        </div>
+    </div>
 </div>

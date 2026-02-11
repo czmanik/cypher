@@ -12,9 +12,10 @@ use Illuminate\Support\Facades\Cache;
 class StoryousStats extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
-    protected static ?string $navigationGroup = 'HR & Provoz';
-    protected static ?string $navigationLabel = 'Storyous';
+    protected static ?string $navigationGroup = null; // Zrušíme skupinu, aby byla stránka nahoře
+    protected static ?string $navigationLabel = 'Storyous Statistiky'; // Změníme název pro jistotu
     protected static ?string $title = 'Storyous Přehled';
+    protected static ?int $navigationSort = 1; // První místo
 
     protected static string $view = 'filament.pages.storyous-stats';
 
@@ -33,7 +34,14 @@ class StoryousStats extends Page
     {
         /** @var \App\Models\User $user */
         $user = auth()->user();
-        return $user && ($user->is_manager || $user->is_admin);
+
+        // Pokud je uživatel přihlášen, zkusíme ho pustit, pokud je manažer nebo admin.
+        // Pro jistotu explicitně přetypujeme na bool.
+        if (!$user) {
+            return false;
+        }
+
+        return (bool) ($user->is_manager || $user->is_admin);
     }
 
     protected function getHeaderActions(): array

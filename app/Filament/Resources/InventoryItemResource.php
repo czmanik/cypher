@@ -37,6 +37,7 @@ class InventoryItemResource extends Resource
                             ->label('Kategorie')
                             ->options([
                                 'ingredient' => 'Ingredience (Kuchyně)',
+                                'bar' => 'Bar',
                                 'operational' => 'Provozní sklad (Spotřebák)',
                             ])
                             ->required(),
@@ -94,10 +95,12 @@ class InventoryItemResource extends Resource
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'ingredient' => 'info',
+                        'bar' => 'warning',
                         'operational' => 'gray',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'ingredient' => 'Ingredience',
+                        'bar' => 'Bar',
                         'operational' => 'Provozní',
                         default => $state,
                     })
@@ -140,6 +143,7 @@ class InventoryItemResource extends Resource
                     ->label('Kategorie')
                     ->options([
                         'ingredient' => 'Ingredience',
+                        'bar' => 'Bar',
                         'operational' => 'Provozní',
                     ]),
             ])

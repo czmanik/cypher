@@ -13,6 +13,9 @@
                         @if($category === 'ingredient')
                             <x-heroicon-o-beaker class="w-6 h-6 text-primary-500"/>
                             <span>Ingredience (Kuchyně)</span>
+                        @elseif($category === 'bar')
+                            <x-heroicon-o-sparkles class="w-6 h-6 text-yellow-500"/>
+                            <span>Bar</span>
                         @else
                             <x-heroicon-o-cube class="w-6 h-6 text-gray-500"/>
                             <span>Provozní sklad (Spotřebák)</span>

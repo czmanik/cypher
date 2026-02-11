@@ -12,8 +12,8 @@ class StoryousService
 {
     protected StoryousSettings $settings;
 
-    // Base URL for Storyous API (This needs to be confirmed based on documentation)
-    // Common one is https://api.storyous.com
+    // TODO: Update this URL once the official Storyous API documentation is confirmed.
+    // Common base URL is https://api.storyous.com but it might differ.
     protected string $baseUrl = 'https://api.storyous.com';
 
     public function __construct(StoryousSettings $settings)
@@ -29,8 +29,8 @@ class StoryousService
      */
     public function getRevenueForDate(Carbon $date): float
     {
-        // 1. Zkontrolujeme, zda máme API klíč
-        if (empty($this->settings->api_key) && empty($this->settings->client_id)) {
+        // 1. Zkontrolujeme, zda máme nezbytné klíče
+        if (empty($this->settings->client_id) || empty($this->settings->merchant_id)) {
             Log::warning('Storyous API credentials are missing.');
             return 0.0;
         }
@@ -53,18 +53,18 @@ class StoryousService
      */
     public function testConnection(): bool
     {
-        if (empty($this->settings->api_key) && empty($this->settings->client_id)) {
+        if (empty($this->settings->client_id) || empty($this->settings->merchant_id)) {
             return false;
         }
 
-        // Zkoušíme zavolat endpoint pro ověření (např. seznam poboček nebo merchants)
-        // Pokud endpoint selže (404, 401), vrátíme false.
+        // Zkoušíme zavolat endpoint pro ověření.
         try {
-            // Placeholder: Zkuste endpoint /merchants nebo /auth/check
-            // Upravte URL podle dokumentace Storyous API
-            $response = Http::withToken($this->settings->api_key ?? '')
+            // TODO: Replace with the correct "Ping" or "List Merchants" endpoint.
+            // Using Basic Auth as a common placeholder for ClientID/Secret.
+            // If OAuth is required, this logic needs to exchange credentials for a token first.
+            $response = Http::withBasicAuth($this->settings->client_id, $this->settings->client_secret ?? '')
                 ->timeout(5)
-                ->get("{$this->baseUrl}/merchants");
+                ->get("{$this->baseUrl}/merchants/{$this->settings->merchant_id}");
 
             return $response->successful();
         } catch (\Exception $e) {
@@ -78,23 +78,23 @@ class StoryousService
      */
     protected function fetchRevenueFromApi(Carbon $date): float
     {
-        // Placeholder pro reálné API volání
-        // Pokud neznáme přesné URL, vrátíme 0.0, abychom nerozbili aplikaci.
-        // Až bude znám endpoint, odkomentujte blok níže:
+        // TODO: Implement actual API call once documentation is available.
+        // Below is a conceptual implementation.
 
         /*
         try {
-            $response = Http::withToken($this->settings->api_key) // Nebo Bearer token z OAuth
+            $response = Http::withBasicAuth($this->settings->client_id, $this->settings->client_secret)
                 ->get("{$this->baseUrl}/bills", [
                     'merchantId' => $this->settings->merchant_id,
+                    'placeId' => $this->settings->place_id,
                     'date' => $date->format('Y-m-d'),
                 ]);
 
             if ($response->successful()) {
-                // Zde bychom sečetli tržby z odpovědi
-                // $data = $response->json();
-                // return collect($data)->sum('total_amount');
-                return 12345.00; // Mock hodnota
+                $data = $response->json();
+                // TODO: Adjust parsing logic based on actual response structure
+                // return collect($data['items'] ?? [])->sum('total_amount');
+                return 12345.00;
             }
 
             Log::error('Storyous API error: ' . $response->body());
@@ -103,6 +103,7 @@ class StoryousService
         }
         */
 
+        // Returns 0.0 to prevent crashes until fully implemented.
         return 0.0;
     }
 }

@@ -65,20 +65,18 @@ class ManageStoryous extends SettingsPage
                             ->helperText('Identifikátor aplikace'),
 
                         Forms\Components\TextInput::make('client_secret')
-                            ->label('Client Secret')
+                            ->label('Client Secret (Secret)')
                             ->password()
                             ->revealable()
                             ->helperText('Tajný klíč aplikace'),
 
-                        Forms\Components\TextInput::make('api_key')
-                            ->label('API Key')
-                            ->password()
-                            ->revealable()
-                            ->helperText('Alternativní API klíč (pokud je používán místo OAuth)'),
-
                         Forms\Components\TextInput::make('merchant_id')
                             ->label('Merchant ID')
                             ->helperText('ID obchodníka ve Storyous'),
+
+                        Forms\Components\TextInput::make('place_id')
+                            ->label('Place ID')
+                            ->helperText('Identifikátor provozovny (nahrazuje původní API Key field)'),
                     ]),
             ]);
     }

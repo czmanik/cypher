@@ -1,7 +1,7 @@
 <x-filament-panels::page>
-    <div class="flex flex-col-reverse lg:flex-row gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         <!-- Main Grid Area -->
-        <div class="flex-1 min-w-0">
+        <div class="lg:col-span-3 min-w-0 order-2 lg:order-1">
             @php
                 // Group items by category for display
                 $groupedItems = $this->items->groupBy('category');
@@ -30,7 +30,7 @@
                                 </div>
 
                                 <div class="text-sm text-gray-500 dark:text-gray-400">
-                                    {{ $item->package_size }} {{ $item->unit }} / klik
+                                    {{ (float) $item->package_size }} {{ $item->unit }} / klik
                                 </div>
 
                                 @if(isset($this->selectedItems[$item->id]))
@@ -46,7 +46,7 @@
         </div>
 
         <!-- Sidebar / Summary -->
-        <div class="w-full lg:w-80 flex-shrink-0">
+        <div class="lg:col-span-1 w-full order-1 lg:order-2">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow p-6 lg:sticky lg:top-24 z-10">
                 <h3 class="text-lg font-bold mb-4">K výdeji</h3>
 
@@ -65,7 +65,7 @@
                                 <div class="flex justify-between items-center group">
                                     <div class="flex-1">
                                         <div class="font-medium">{{ $item->name }}</div>
-                                        <div class="text-xs text-gray-500">{{ $count * $item->package_size }} {{ $item->unit }} celkem</div>
+                                        <div class="text-xs text-gray-500">{{ (float) ($count * $item->package_size) }} {{ $item->unit }} celkem</div>
                                     </div>
                                     <div class="flex items-center gap-2">
                                         <button wire:click="removeItem({{ $itemId }})" class="text-gray-400 hover:text-red-500 p-1">

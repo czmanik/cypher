@@ -71,4 +71,24 @@ class InventoryTest extends TestCase
         $item->refresh();
         $this->assertEquals(8, $item->stock_qty);
     }
+
+    public function test_staff_cannot_access_inventory_resource()
+    {
+        $staff = User::factory()->create(['is_manager' => false, 'is_active' => true]);
+
+        $this->actingAs($staff);
+
+        $response = $this->get(ListInventoryItems::getUrl());
+        $response->assertForbidden();
+    }
+
+    public function test_inactive_user_cannot_access_fast_write_off()
+    {
+        $inactive = User::factory()->create(['is_active' => false]);
+
+        $this->actingAs($inactive);
+
+        $response = $this->get(FastWriteOff::getUrl());
+        $response->assertForbidden();
+    }
 }

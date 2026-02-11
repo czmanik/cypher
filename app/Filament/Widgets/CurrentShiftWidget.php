@@ -112,14 +112,12 @@ class CurrentShiftWidget extends Widget implements HasActions, HasForms
                     ->orderBy('sort_order')
                     ->get();
 
-                if ($templates->isEmpty()) {
-                    return [
-                        Forms\Components\Placeholder::make('no_checklist')
-                            ->content('Pro vaši pozici nejsou definovány žádné úkoly.'),
-                    ];
-                }
-
                 $schema = [];
+
+                if ($templates->isEmpty()) {
+                    $schema[] = Forms\Components\Placeholder::make('no_checklist')
+                        ->content('Pro vaši pozici nejsou definovány žádné úkoly.');
+                }
 
                 foreach ($templates as $template) {
                     $schema[] = Forms\Components\Section::make($template->task_name)
@@ -143,12 +141,19 @@ class CurrentShiftWidget extends Widget implements HasActions, HasForms
                         ->collapsible();
                 }
 
+                $schema[] = Forms\Components\Textarea::make('general_note')
+                    ->label('Poznámka ke směně')
+                    ->placeholder('Něco se stalo? Chybí zboží? Napište to sem...')
+                    ->rows(3)
+                    ->maxLength(1000);
+
                 return $schema;
             })
             ->action(function (array $data) {
                 if (!$this->activeShift) return;
 
                 $tasks = $data['tasks'] ?? [];
+                $generalNote = $data['general_note'] ?? null;
 
                 // Uložit výsledky
                 foreach ($tasks as $taskId => $taskData) {
@@ -167,6 +172,7 @@ class CurrentShiftWidget extends Widget implements HasActions, HasForms
                 $this->activeShift->update([
                     'end_at' => now(),
                     'status' => 'pending_approval', // Po ukončení jde ke kontrole
+                    'general_note' => $generalNote,
                 ]);
 
                 // Přepočet (trigger v modelu se postará, ale end_at je klíčové)

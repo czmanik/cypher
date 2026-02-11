@@ -3,8 +3,11 @@
 namespace App\Filament\Pages;
 
 use App\Settings\StoryousSettings;
+use App\Services\StoryousService;
+use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Form;
+use Filament\Notifications\Notification;
 use Filament\Pages\SettingsPage;
 
 class ManageStoryous extends SettingsPage
@@ -23,6 +26,31 @@ class ManageStoryous extends SettingsPage
         $user = auth()->user();
         // Only accessible by admins
         return $user && $user->is_admin;
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('testConnection')
+                ->label('Ověřit spojení')
+                ->icon('heroicon-o-check-circle')
+                ->color('success') // Green button
+                ->action(function (StoryousService $service) {
+                    if ($service->testConnection()) {
+                        Notification::make()
+                            ->title('Spojení navázáno')
+                            ->body('API klíče jsou platné a služba je dostupná.')
+                            ->success()
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('Chyba spojení')
+                            ->body('Nepodařilo se připojit k API. Zkontrolujte klíče.')
+                            ->danger()
+                            ->send();
+                    }
+                }),
+        ];
     }
 
     public function form(Form $form): Form

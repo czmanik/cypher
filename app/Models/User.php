@@ -38,6 +38,7 @@ class User extends Authenticatable implements FilamentUser
         'hourly_rate',
         'is_active',
         'is_manager',
+        'is_admin',
         'employee_type',
     ];
 
@@ -63,6 +64,7 @@ class User extends Authenticatable implements FilamentUser
             'password' => 'hashed',
             'is_active' => 'boolean',
             'is_manager' => 'boolean',
+            'is_admin' => 'boolean',
             'hourly_rate' => 'decimal:2',
         ];
     }

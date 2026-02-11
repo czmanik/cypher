@@ -12,13 +12,52 @@ class StoryousService
 {
     protected StoryousSettings $settings;
 
-    // Base URL for Storyous API (This needs to be confirmed based on documentation)
-    // Common one is https://api.storyous.com
+    // Base URL for API calls (bills, places, etc.)
     protected string $baseUrl = 'https://api.storyous.com';
+
+    // Base URL for Authentication
+    protected string $authUrl = 'https://login.storyous.com/api/auth/authorize';
 
     public function __construct(StoryousSettings $settings)
     {
         $this->settings = $settings;
+    }
+
+    /**
+     * Získá přístupový token (Bearer Token) pro komunikaci s API.
+     * Token je kešován po dobu své platnosti.
+     *
+     * @return string|null
+     */
+    public function getAccessToken(): ?string
+    {
+        if (empty($this->settings->client_id) || empty($this->settings->client_secret)) {
+            Log::warning('Storyous API: Missing Client ID or Secret.');
+            return null;
+        }
+
+        // Cache klíč: storyous_access_token
+        return Cache::remember('storyous_access_token', now()->addMinutes(55), function () {
+            try {
+                $response = Http::asForm()->post($this->authUrl, [
+                    'client_id' => $this->settings->client_id,
+                    'client_secret' => $this->settings->client_secret,
+                    'grant_type' => 'client_credentials',
+                ]);
+
+                if ($response->successful()) {
+                    $data = $response->json();
+                    return $data['access_token'] ?? null;
+                }
+
+                Log::error('Storyous Auth Failed: ' . $response->body());
+                return null;
+
+            } catch (\Exception $e) {
+                Log::error('Storyous Auth Exception: ' . $e->getMessage());
+                return null;
+            }
+        });
     }
 
     /**
@@ -29,9 +68,9 @@ class StoryousService
      */
     public function getRevenueForDate(Carbon $date): float
     {
-        // 1. Zkontrolujeme, zda máme API klíč
-        if (empty($this->settings->api_key) && empty($this->settings->client_id)) {
-            Log::warning('Storyous API credentials are missing.');
+        // 1. Zkontrolujeme, zda máme nezbytné klíče
+        if (empty($this->settings->merchant_id) || empty($this->settings->place_id)) {
+            Log::warning('Storyous API: Missing Merchant ID or Place ID.');
             return 0.0;
         }
 
@@ -49,28 +88,25 @@ class StoryousService
 
     /**
      * Helper pro testování připojení (vrací true/false).
-     * Zkouší reálný dotaz na API (nebo aspoň validuje klíče).
+     * Zkouší získat token. Pokud se to podaří, klíče jsou platné.
      */
     public function testConnection(): bool
     {
-        if (empty($this->settings->api_key) && empty($this->settings->client_id)) {
+        // 1. Vymažeme cache tokenu, abychom otestovali čerstvé přihlášení
+        Cache::forget('storyous_access_token');
+
+        // 2. Zkusíme získat token
+        $token = $this->getAccessToken();
+
+        if (!$token) {
             return false;
         }
 
-        // Zkoušíme zavolat endpoint pro ověření (např. seznam poboček nebo merchants)
-        // Pokud endpoint selže (404, 401), vrátíme false.
-        try {
-            // Placeholder: Zkuste endpoint /merchants nebo /auth/check
-            // Upravte URL podle dokumentace Storyous API
-            $response = Http::withToken($this->settings->api_key ?? '')
-                ->timeout(5)
-                ->get("{$this->baseUrl}/merchants");
-
-            return $response->successful();
-        } catch (\Exception $e) {
-            Log::error('Storyous Test Connection Failed: ' . $e->getMessage());
-            return false;
-        }
+        // 3. Volitelně: pokud token máme, zkusíme jednoduchý GET požadavek (např. seznam poboček),
+        // abychom ověřili, že token funguje i pro tento MerchantID.
+        // Pokud endpoint selže (např. 404), může to znamenat špatné ID, ale Auth je OK.
+        // Prozatím stačí vrátit true, že se podařilo autentizovat.
+        return true;
     }
 
     /**
@@ -78,30 +114,51 @@ class StoryousService
      */
     protected function fetchRevenueFromApi(Carbon $date): float
     {
-        // Placeholder pro reálné API volání
-        // Pokud neznáme přesné URL, vrátíme 0.0, abychom nerozbili aplikaci.
-        // Až bude znám endpoint, odkomentujte blok níže:
+        $token = $this->getAccessToken();
 
-        /*
+        if (!$token) {
+            return 0.0;
+        }
+
+        // Časové rozmezí pro daný den
+        $createdFrom = $date->copy()->startOfDay()->toIso8601String();
+        $createdTo = $date->copy()->endOfDay()->toIso8601String();
+
         try {
-            $response = Http::withToken($this->settings->api_key) // Nebo Bearer token z OAuth
+            // Volání API pro získání účtenek
+            // Endpoint: /bills
+            // Parametry: merchantId, placeId, createdFrom, createdTo
+            $response = Http::withToken($token)
                 ->get("{$this->baseUrl}/bills", [
                     'merchantId' => $this->settings->merchant_id,
-                    'date' => $date->format('Y-m-d'),
+                    'placeId' => $this->settings->place_id,
+                    'createdFrom' => $createdFrom,
+                    'createdTo' => $createdTo,
+                    'limit' => 1000, // Načíst dostatek záznamů
                 ]);
 
             if ($response->successful()) {
-                // Zde bychom sečetli tržby z odpovědi
-                // $data = $response->json();
-                // return collect($data)->sum('total_amount');
-                return 12345.00; // Mock hodnota
+                $data = $response->json();
+
+                // Storyous API vrací data v poli, nebo v klíči 'data'.
+                $bills = $data['data'] ?? $data;
+
+                if (!is_array($bills)) {
+                    // Pokud to není pole, může to být chyba nebo prázdný objekt
+                    return 0.0;
+                }
+
+                // Sečteme 'finalPrice' (což je obvykle konečná cena po slevách)
+                return collect($bills)->sum(function ($bill) {
+                    return $bill['finalPrice'] ?? $bill['totalAmount'] ?? 0.0;
+                });
+            } else {
+                Log::error("Storyous API error (Bills): Status {$response->status()}, Body: " . $response->body());
             }
 
-            Log::error('Storyous API error: ' . $response->body());
         } catch (\Exception $e) {
-            Log::error('Storyous API exception: ' . $e->getMessage());
+            Log::error('Storyous API exception (Bills): ' . $e->getMessage());
         }
-        */
 
         return 0.0;
     }

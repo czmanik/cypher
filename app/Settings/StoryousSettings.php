@@ -9,7 +9,7 @@ class StoryousSettings extends Settings
     public ?string $client_id;
     public ?string $client_secret;
     public ?string $merchant_id;
-    public ?string $api_key; // In case they use simple API key
+    public ?string $place_id;
 
     public static function group(): string
     {

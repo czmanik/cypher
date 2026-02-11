@@ -8,29 +8,46 @@
             @endphp
 
             @foreach($groupedItems as $category => $categoryItems)
-                <div class="mb-6">
-                    <h2 class="text-xl font-bold mb-4 capitalize">
-                        {{ $category === 'ingredient' ? 'Ingredience' : 'Spotřebák' }}
+                <div class="mb-8">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2 border-b border-gray-200 dark:border-gray-700 pb-2">
+                        @if($category === 'ingredient')
+                            <x-heroicon-o-beaker class="w-6 h-6 text-primary-500"/>
+                            <span>Ingredience (Kuchyně)</span>
+                        @else
+                            <x-heroicon-o-cube class="w-6 h-6 text-gray-500"/>
+                            <span>Provozní sklad (Spotřebák)</span>
+                        @endif
                     </h2>
                     <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                         @foreach($categoryItems as $item)
                             <div
                                 wire:click="toggleItem({{ $item->id }})"
-                                class="cursor-pointer bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition border-2 p-4 relative group select-none
+                                class="flex flex-col h-full justify-between cursor-pointer bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-md transition border-2 p-4 relative group select-none
                                 {{ isset($this->selectedItems[$item->id]) ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/10' : 'border-transparent' }}
                                 "
                             >
-                                <div class="flex justify-between items-start mb-2">
-                                    <span class="font-semibold text-lg line-clamp-2 leading-tight">{{ $item->name }}</span>
-                                    @if($item->stock_status === 'critical')
-                                        <div class="w-3 h-3 rounded-full bg-red-500" title="Kritický stav"></div>
-                                    @elseif($item->stock_status === 'low')
-                                        <div class="w-3 h-3 rounded-full bg-orange-500" title="Nízký stav"></div>
-                                    @endif
+                                <div>
+                                    <div class="flex justify-between items-start mb-2 gap-2">
+                                        <span class="font-semibold text-lg line-clamp-2 leading-tight">{{ $item->name }}</span>
+                                        @if($item->stock_status === 'critical')
+                                            <div class="flex-shrink-0 w-3 h-3 rounded-full bg-red-500 animate-pulse" title="Kritický stav! (Došlo)"></div>
+                                        @elseif($item->stock_status === 'low')
+                                            <div class="flex-shrink-0 w-3 h-3 rounded-full bg-orange-500" title="Nízký stav (Objednat)"></div>
+                                        @else
+                                            <div class="flex-shrink-0 w-3 h-3 rounded-full bg-green-500" title="Skladem"></div>
+                                        @endif
+                                    </div>
+
+                                    <div class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+                                        Odpis: <span class="font-medium text-gray-900 dark:text-gray-200">{{ (float) $item->package_size }} {{ $item->unit }}</span>
+                                    </div>
                                 </div>
 
-                                <div class="text-sm text-gray-500 dark:text-gray-400">
-                                    {{ (float) $item->package_size }} {{ $item->unit }} / klik
+                                <div class="mt-auto pt-3 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center text-sm">
+                                    <span class="text-gray-500">Skladem:</span>
+                                    <span class="font-bold {{ $item->stock_qty <= $item->min_stock_qty ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white' }}">
+                                        {{ (float) $item->stock_qty }} {{ $item->unit }}
+                                    </span>
                                 </div>
 
                                 @if(isset($this->selectedItems[$item->id]))

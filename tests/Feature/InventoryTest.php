@@ -91,4 +91,5 @@ class InventoryTest extends TestCase
         $response = $this->get(FastWriteOff::getUrl());
         $response->assertForbidden();
     }
+
 }

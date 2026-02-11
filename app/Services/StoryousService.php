@@ -68,21 +68,10 @@ class StoryousService
      */
     public function getRevenueForDate(Carbon $date): float
     {
-        // 1. Zkontrolujeme, zda máme nezbytné klíče
-        if (empty($this->settings->merchant_id) || empty($this->settings->place_id)) {
-            Log::warning('Storyous API: Missing Merchant ID or Place ID.');
-            return 0.0;
-        }
+        $bills = $this->getBillsForDate($date);
 
-        // Cache klíč: storyous_revenue_YYYY-MM-DD
-        $cacheKey = 'storyous_revenue_' . $date->format('Y-m-d');
-
-        // Pokud jde o dnešek, kešujeme krátce (např. 15 min), aby se data aktualizovala během dne.
-        // Pokud jde o minulost, můžeme kešovat déle (např. 24 hodin), protože se data nemění.
-        $ttl = $date->isToday() ? now()->addMinutes(15) : now()->addHours(24);
-
-        return Cache::remember($cacheKey, $ttl, function () use ($date) {
-            return $this->fetchRevenueFromApi($date);
+        return collect($bills)->sum(function ($bill) {
+            return $bill['finalPrice'] ?? $bill['totalAmount'] ?? 0.0;
         });
     }
 
@@ -102,22 +91,44 @@ class StoryousService
             return false;
         }
 
-        // 3. Volitelně: pokud token máme, zkusíme jednoduchý GET požadavek (např. seznam poboček),
-        // abychom ověřili, že token funguje i pro tento MerchantID.
-        // Pokud endpoint selže (např. 404), může to znamenat špatné ID, ale Auth je OK.
-        // Prozatím stačí vrátit true, že se podařilo autentizovat.
         return true;
+    }
+
+    /**
+     * Získá seznam účtenek za daný den (kešováno).
+     *
+     * @param Carbon $date
+     * @return array
+     */
+    public function getBillsForDate(Carbon $date): array
+    {
+        // 1. Zkontrolujeme, zda máme nezbytné klíče
+        if (empty($this->settings->merchant_id) || empty($this->settings->place_id)) {
+            Log::warning('Storyous API: Missing Merchant ID or Place ID.');
+            return [];
+        }
+
+        // Cache klíč: storyous_bills_YYYY-MM-DD
+        $cacheKey = 'storyous_bills_' . $date->format('Y-m-d');
+
+        // Pokud jde o dnešek, kešujeme krátce (např. 15 min), aby se data aktualizovala během dne.
+        // Pokud jde o minulost, můžeme kešovat déle (např. 24 hodin), protože se data nemění.
+        $ttl = $date->isToday() ? now()->addMinutes(15) : now()->addHours(24);
+
+        return Cache::remember($cacheKey, $ttl, function () use ($date) {
+            return $this->fetchBillsFromApi($date);
+        });
     }
 
     /**
      * Interní metoda pro reálné volání API (bez cache).
      */
-    protected function fetchRevenueFromApi(Carbon $date): float
+    protected function fetchBillsFromApi(Carbon $date): array
     {
         $token = $this->getAccessToken();
 
         if (!$token) {
-            return 0.0;
+            return [];
         }
 
         // Časové rozmezí pro daný den
@@ -145,13 +156,10 @@ class StoryousService
 
                 if (!is_array($bills)) {
                     // Pokud to není pole, může to být chyba nebo prázdný objekt
-                    return 0.0;
+                    return [];
                 }
 
-                // Sečteme 'finalPrice' (což je obvykle konečná cena po slevách)
-                return collect($bills)->sum(function ($bill) {
-                    return $bill['finalPrice'] ?? $bill['totalAmount'] ?? 0.0;
-                });
+                return $bills;
             } else {
                 Log::error("Storyous API error (Bills): Status {$response->status()}, Body: " . $response->body());
             }
@@ -160,6 +168,6 @@ class StoryousService
             Log::error('Storyous API exception (Bills): ' . $e->getMessage());
         }
 
-        return 0.0;
+        return [];
     }
 }

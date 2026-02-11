@@ -297,10 +297,10 @@ class WorkShiftResource extends Resource
                     ->visible(fn () => auth()->user()?->is_manager),
                 
                 Tables\Actions\RestoreAction::make()
-                    ->visible(fn () => auth()->user()?->is_manager),
+                    ->visible(fn (WorkShift $record) => auth()->user()?->is_manager && $record->trashed()),
 
                 Tables\Actions\ForceDeleteAction::make()
-                    ->visible(fn () => auth()->user()?->is_manager),
+                    ->visible(fn (WorkShift $record) => auth()->user()?->is_manager && $record->trashed()),
 
                 Tables\Actions\Action::make('approve')
                     ->label('Schválit')

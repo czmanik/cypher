@@ -37,6 +37,7 @@ class InventoryItemResource extends Resource
                             ->label('Kategorie')
                             ->options([
                                 'ingredient' => 'Ingredience (Kuchyně)',
+                                'bar' => 'Bar',
                                 'operational' => 'Provozní sklad (Spotřebák)',
                             ])
                             ->required(),
@@ -94,10 +95,12 @@ class InventoryItemResource extends Resource
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'ingredient' => 'info',
+                        'bar' => 'warning',
                         'operational' => 'gray',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'ingredient' => 'Ingredience',
+                        'bar' => 'Bar',
                         'operational' => 'Provozní',
                         default => $state,
                     })
@@ -131,14 +134,88 @@ class InventoryItemResource extends Resource
             ])
             ->defaultSort('name')
             ->filters([
+                Tables\Filters\Filter::make('shopping_list')
+                    ->label('Nákupní seznam (Dochází)')
+                    ->query(fn (Builder $query) => $query->whereColumn('stock_qty', '<=', 'min_stock_qty'))
+                    ->default() // Optional: make it default if they want to see what to buy immediately? No, list all is better default.
+                    ->toggle(),
                 Tables\Filters\SelectFilter::make('category')
                     ->label('Kategorie')
                     ->options([
                         'ingredient' => 'Ingredience',
+                        'bar' => 'Bar',
                         'operational' => 'Provozní',
                     ]),
             ])
             ->actions([
+                Tables\Actions\Action::make('quick_add')
+                    ->label('Příjem')
+                    ->icon('heroicon-m-plus')
+                    ->color('success')
+                    ->button()
+                    ->outlined()
+                    ->size('xs')
+                    ->form([
+                        Forms\Components\TextInput::make('quantity')
+                            ->label('Množství')
+                            ->numeric()
+                            ->default(fn (InventoryItem $record) => $record->package_size)
+                            ->autofocus()
+                            ->required(),
+                    ])
+                    ->action(function (InventoryItem $record, array $data) {
+                        $qty = (float) $data['quantity'];
+
+                        \Illuminate\Support\Facades\DB::transaction(function () use ($record, $qty) {
+                            $record->stock_qty += $qty;
+                            $record->save();
+
+                            $record->transactions()->create([
+                                'user_id' => auth()->id(),
+                                'type' => 'purchase',
+                                'quantity' => $qty,
+                                'cost' => $record->price,
+                                'note' => 'Rychlý příjem (Admin)',
+                            ]);
+                        });
+
+                        \Filament\Notifications\Notification::make()->title('Přidáno')->success()->send();
+                    }),
+
+                Tables\Actions\Action::make('quick_subtract')
+                    ->label('Výdej')
+                    ->icon('heroicon-m-minus')
+                    ->color('danger')
+                    ->button()
+                    ->outlined()
+                    ->size('xs')
+                    ->form([
+                        Forms\Components\TextInput::make('quantity')
+                            ->label('Množství')
+                            ->numeric()
+                            ->default(fn (InventoryItem $record) => $record->package_size)
+                            ->autofocus()
+                            ->required(),
+                    ])
+                    ->action(function (InventoryItem $record, array $data) {
+                        $qty = (float) $data['quantity'];
+
+                        \Illuminate\Support\Facades\DB::transaction(function () use ($record, $qty) {
+                            $record->stock_qty -= $qty;
+                            $record->save();
+
+                            $record->transactions()->create([
+                                'user_id' => auth()->id(),
+                                'type' => 'write_off',
+                                'quantity' => -$qty,
+                                'cost' => $record->price,
+                                'note' => 'Rychlý výdej (Admin)',
+                            ]);
+                        });
+
+                        \Filament\Notifications\Notification::make()->title('Odebráno')->success()->send();
+                    }),
+
                 Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([

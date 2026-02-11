@@ -18,6 +18,11 @@ class FastWriteOff extends Page
     protected static ?string $title = 'Rychlý výdej ze skladu';
     protected static string $view = 'filament.pages.fast-write-off';
 
+    public static function canAccess(): bool
+    {
+        return (bool) auth()->user()?->is_active;
+    }
+
     public array $selectedItems = []; // [itemId => count]
 
     #[Computed]

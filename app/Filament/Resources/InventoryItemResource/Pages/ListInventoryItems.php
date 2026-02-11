@@ -112,6 +112,8 @@ class ListInventoryItems extends ListRecords
                 ->badgeColor('danger'),
             'ingredients' => Tab::make('Ingredience')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('category', 'ingredient')),
+            'bar' => Tab::make('Bar')
+                ->modifyQueryUsing(fn (Builder $query) => $query->where('category', 'bar')),
             'operational' => Tab::make('Spotřebák')
                 ->modifyQueryUsing(fn (Builder $query) => $query->where('category', 'operational')),
         ];

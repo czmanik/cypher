@@ -74,6 +74,15 @@ class StoryousTestConnection extends Command
             $this->info('Service returned ' . count($bills) . ' bills.');
             if (empty($bills)) {
                  $this->warn('No bills returned. This might be correct if no sales today, or an API error.');
+            } else {
+                // Test new metrics
+                $tips = $service->getTipsForDate($today);
+                $guests = $service->getPersonCountForDate($today);
+                $revenue = $service->getRevenueForDate($today);
+
+                $this->info("Revenue: " . number_format($revenue, 2) . " CZK");
+                $this->info("Tips: " . number_format($tips, 2) . " CZK");
+                $this->info("Guests: " . $guests);
             }
         } catch (\Exception $e) {
             $this->error('Service execution threw exception: ' . $e->getMessage());

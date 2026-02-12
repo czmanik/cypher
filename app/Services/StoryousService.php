@@ -76,6 +76,37 @@ class StoryousService
     }
 
     /**
+     * Získá celkové spropitné za daný den.
+     *
+     * @param Carbon $date
+     * @return float
+     */
+    public function getTipsForDate(Carbon $date): float
+    {
+        $bills = $this->getBillsForDate($date);
+
+        return collect($bills)->sum(function ($bill) {
+            // Tips is usually a string like "10.00"
+            return (float) ($bill['tips'] ?? 0.0);
+        });
+    }
+
+    /**
+     * Získá celkový počet hostů za daný den.
+     *
+     * @param Carbon $date
+     * @return int
+     */
+    public function getPersonCountForDate(Carbon $date): int
+    {
+        $bills = $this->getBillsForDate($date);
+
+        return collect($bills)->sum(function ($bill) {
+            return (int) ($bill['personCount'] ?? 0);
+        });
+    }
+
+    /**
      * Helper pro testování připojení (vrací true/false).
      * Zkouší získat token. Pokud se to podaří, klíče jsou platné.
      */

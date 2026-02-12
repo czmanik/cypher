@@ -132,19 +132,21 @@ class StoryousService
         }
 
         // Časové rozmezí pro daný den
-        $createdFrom = $date->copy()->startOfDay()->toIso8601String();
-        $createdTo = $date->copy()->endOfDay()->toIso8601String();
+        $from = $date->copy()->startOfDay()->toIso8601String();
+        $till = $date->copy()->endOfDay()->toIso8601String();
+
+        $sourceId = "{$this->settings->merchant_id}-{$this->settings->place_id}";
 
         try {
             // Volání API pro získání účtenek
-            // Endpoint: /bills
-            // Parametry: merchantId, placeId, createdFrom, createdTo
+            // Endpoint: /bills/{merchantId}-{placeId}
+            // Parametry: from, till
+            $url = "{$this->baseUrl}/bills/{$sourceId}";
+
             $response = Http::withToken($token)
-                ->get("{$this->baseUrl}/bills", [
-                    'merchantId' => $this->settings->merchant_id,
-                    'placeId' => $this->settings->place_id,
-                    'createdFrom' => $createdFrom,
-                    'createdTo' => $createdTo,
+                ->get($url, [
+                    'from' => $from,
+                    'till' => $till,
                     'limit' => 1000, // Načíst dostatek záznamů
                 ]);
 
@@ -161,7 +163,7 @@ class StoryousService
 
                 return $bills;
             } else {
-                Log::error("Storyous API error (Bills): Status {$response->status()}, Body: " . $response->body());
+                Log::error("Storyous API error (Bills) at {$url}: Status {$response->status()}, Body: " . $response->body());
             }
 
         } catch (\Exception $e) {

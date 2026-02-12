@@ -1,4 +1,32 @@
 <x-filament-panels::page>
+    <!-- Date Navigation -->
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-gray-900 p-4 rounded-lg shadow mb-4 border dark:border-gray-700">
+        <div class="flex items-center gap-4">
+             <x-filament::button
+                color="gray"
+                icon="heroicon-o-chevron-left"
+                wire:click="previousDay"
+                size="sm"
+            >
+                Předchozí
+            </x-filament::button>
+
+            <div class="text-xl font-bold min-w-[120px] text-center">
+                {{ \Carbon\Carbon::parse($date)->format('d.m.Y') }}
+            </div>
+
+            <x-filament::button
+                color="gray"
+                icon="heroicon-o-chevron-right"
+                icon-position="after"
+                wire:click="nextDay"
+                size="sm"
+            >
+                Následující
+            </x-filament::button>
+        </div>
+    </div>
+
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
         <!-- Revenue -->
         <x-filament::section>

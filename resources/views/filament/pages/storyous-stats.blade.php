@@ -1,5 +1,45 @@
 <x-filament-panels::page>
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <!-- Date Navigation -->
+    <div class="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-gray-900 p-4 rounded-lg shadow mb-4 border dark:border-gray-700">
+        <div class="flex items-center gap-4">
+             <x-filament::button
+                color="gray"
+                icon="heroicon-o-chevron-left"
+                wire:click="previousDay"
+                size="sm"
+            >
+                Předchozí
+            </x-filament::button>
+
+            <div class="text-xl font-bold min-w-[120px] text-center">
+                {{ \Carbon\Carbon::parse($date)->format('d.m.Y') }}
+            </div>
+
+            <x-filament::button
+                color="gray"
+                icon="heroicon-o-chevron-right"
+                icon-position="after"
+                wire:click="nextDay"
+                size="sm"
+            >
+                Následující
+            </x-filament::button>
+        </div>
+
+        <!-- Custom Actions (Select Date / Refresh) -->
+        <!-- Since we are in a custom view, standard header actions render separately.
+             But we can access them if we wanted, or just rely on the Page Header.
+             The user request implies these controls should be here.
+             We'll keep the standard page header actions for "Select Date" and "Refresh" as they are robust.
+             However, the request says "Storyous Přehled < Previous [Date] Next > Change Date | Refresh".
+             Let's try to mimic that flow or keep the Page Header actions.
+             Filament renders page header actions at the top right automatically.
+             So we have Title on left, Actions on right.
+             The Date Nav is best placed just below the title area or as a custom widget.
+        -->
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <!-- Summary Widgets -->
         <x-filament::section>
             <x-slot name="heading">
@@ -27,40 +67,6 @@
                 {{ $totalGuests > 0 ? $totalGuests : 'N/A' }}
             </div>
         </x-filament::section>
-
-        <!-- Date Display -->
-        <x-filament::section>
-            <x-slot name="heading">
-                Vybrané datum
-            </x-slot>
-            <div class="text-xl font-bold">
-                {{ \Carbon\Carbon::parse($date)->format('d.m.Y') }}
-            </div>
-        </x-filament::section>
-    </div>
-
-    <!-- Date Navigation -->
-    <div class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-lg shadow mb-4">
-        <x-filament::button
-            color="gray"
-            icon="heroicon-o-chevron-left"
-            wire:click="previousDay"
-        >
-            Předchozí den
-        </x-filament::button>
-
-        <div class="text-lg font-bold">
-            {{ \Carbon\Carbon::parse($date)->format('d.m.Y') }}
-        </div>
-
-        <x-filament::button
-            color="gray"
-            icon="heroicon-o-chevron-right"
-            icon-position="after"
-            wire:click="nextDay"
-        >
-            Následující den
-        </x-filament::button>
     </div>
 
     <!-- Simple Table for Data -->

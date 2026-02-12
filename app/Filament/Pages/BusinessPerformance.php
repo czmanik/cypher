@@ -39,6 +39,25 @@ class BusinessPerformance extends Page
         return $user && ($user->is_manager || $user->is_admin);
     }
 
+    public function previousDay()
+    {
+        $newDate = Carbon::parse($this->date)->subDay();
+        $this->date = $newDate->format('Y-m-d');
+        $this->loadData();
+    }
+
+    public function nextDay()
+    {
+        $newDate = Carbon::parse($this->date)->addDay();
+
+        if ($newDate->isFuture()) {
+            return;
+        }
+
+        $this->date = $newDate->format('Y-m-d');
+        $this->loadData();
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -46,21 +65,13 @@ class BusinessPerformance extends Page
                 ->label('Předchozí den')
                 ->icon('heroicon-o-chevron-left')
                 ->color('gray')
-                ->action(function () {
-                    $newDate = Carbon::parse($this->date)->subDay();
-                    $this->date = $newDate->format('Y-m-d');
-                    $this->loadData();
-                }),
+                ->action(fn () => $this->previousDay()),
 
             Action::make('nextDay')
                 ->label('Následující den')
                 ->icon('heroicon-o-chevron-right')
                 ->color('gray')
-                ->action(function () {
-                    $newDate = Carbon::parse($this->date)->addDay();
-                    $this->date = $newDate->format('Y-m-d');
-                    $this->loadData();
-                }),
+                ->action(fn () => $this->nextDay()),
 
             Action::make('selectDate')
                 ->label('Změnit datum')

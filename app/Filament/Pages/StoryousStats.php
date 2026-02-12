@@ -22,6 +22,7 @@ class StoryousStats extends Page
     public $date;
     public $totalRevenue = 0.0;
     public $billsCount = 0;
+    public $totalGuests = 0;
     public $bills = [];
     public $selectedBill = null;
 
@@ -46,6 +47,25 @@ class StoryousStats extends Page
         return (bool) ($user->is_manager || $user->is_admin);
     }
 
+    public function previousDay()
+    {
+        $newDate = Carbon::parse($this->date)->subDay();
+        $this->date = $newDate->format('Y-m-d');
+        $this->loadDataForDate($newDate);
+    }
+
+    public function nextDay()
+    {
+        $newDate = Carbon::parse($this->date)->addDay();
+
+        if ($newDate->isFuture()) {
+            return;
+        }
+
+        $this->date = $newDate->format('Y-m-d');
+        $this->loadDataForDate($newDate);
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -53,21 +73,13 @@ class StoryousStats extends Page
                 ->label('Předchozí den')
                 ->icon('heroicon-o-chevron-left')
                 ->color('gray')
-                ->action(function () {
-                    $newDate = Carbon::parse($this->date)->subDay();
-                    $this->date = $newDate->format('Y-m-d');
-                    $this->loadDataForDate($newDate);
-                }),
+                ->action(fn () => $this->previousDay()),
 
             Action::make('nextDay')
                 ->label('Následující den')
                 ->icon('heroicon-o-chevron-right')
                 ->color('gray')
-                ->action(function () {
-                    $newDate = Carbon::parse($this->date)->addDay();
-                    $this->date = $newDate->format('Y-m-d');
-                    $this->loadDataForDate($newDate);
-                }),
+                ->action(fn () => $this->nextDay()),
 
             Action::make('selectDate')
                 ->label('Změnit datum')
@@ -99,7 +111,18 @@ class StoryousStats extends Page
 
     public function openBillDetail(string $billId)
     {
-        $this->selectedBill = collect($this->bills)->firstWhere('billId', $billId);
+        // 1. Zkusíme najít základní data v seznamu (pro rychlé zobrazení, než se načte detail,
+        // i když v tomto synchronním flow to moc nepomůže, ale jako fallback dobrý)
+        $basicInfo = collect($this->bills)->firstWhere('billId', $billId);
+
+        // 2. Načteme plný detail (položky) z API
+        /** @var StoryousService $service */
+        $service = app(StoryousService::class);
+        $detail = $service->getBillDetail($billId);
+
+        // Pokud API vrátí detail, použijeme ho. Jinak fallback na základní info.
+        $this->selectedBill = $detail ?? $basicInfo;
+
         $this->dispatch('open-modal', id: 'bill-detail-modal');
     }
 
@@ -115,6 +138,10 @@ class StoryousStats extends Page
 
         $this->totalRevenue = collect($this->bills)->sum(function ($bill) {
             return $bill['finalPrice'] ?? $bill['totalAmount'] ?? 0.0;
+        });
+
+        $this->totalGuests = collect($this->bills)->sum(function ($bill) {
+            return (int)($bill['personCount'] ?? 0);
         });
     }
 }

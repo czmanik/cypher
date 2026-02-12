@@ -8,27 +8,27 @@ use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Pages\Page;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Collection;
 
 class BusinessPerformance extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-presentation-chart-line';
-    protected static ?string $navigationGroup = 'HR & Provoz';
     protected static ?string $navigationLabel = 'Výkon podniku';
     protected static ?string $title = 'Výkon podniku';
+    protected static ?string $navigationGroup = 'HR & Provoz';
     protected static ?int $navigationSort = 2;
 
     protected static string $view = 'filament.pages.business-performance';
 
     public $date;
     public $revenue = 0.0;
-    public $laborCosts = 0.0;
+    public $laborCost = 0.0;
     public $profit = 0.0;
     public $shifts = [];
 
     public function mount()
     {
-        $this->date = request()->query('date', now()->format('Y-m-d'));
+        $this->date = now()->format('Y-m-d');
         $this->loadData();
     }
 
@@ -39,6 +39,25 @@ class BusinessPerformance extends Page
         return $user && ($user->is_manager || $user->is_admin);
     }
 
+    public function previousDay()
+    {
+        $newDate = Carbon::parse($this->date)->subDay();
+        $this->date = $newDate->format('Y-m-d');
+        $this->loadData();
+    }
+
+    public function nextDay()
+    {
+        $newDate = Carbon::parse($this->date)->addDay();
+
+        if ($newDate->isFuture()) {
+            return;
+        }
+
+        $this->date = $newDate->format('Y-m-d');
+        $this->loadData();
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -46,21 +65,13 @@ class BusinessPerformance extends Page
                 ->label('Předchozí den')
                 ->icon('heroicon-o-chevron-left')
                 ->color('gray')
-                ->action(function () {
-                    $newDate = Carbon::parse($this->date)->subDay();
-                    $this->date = $newDate->format('Y-m-d');
-                    $this->loadData();
-                }),
+                ->action(fn () => $this->previousDay()),
 
             Action::make('nextDay')
                 ->label('Následující den')
                 ->icon('heroicon-o-chevron-right')
                 ->color('gray')
-                ->action(function () {
-                    $newDate = Carbon::parse($this->date)->addDay();
-                    $this->date = $newDate->format('Y-m-d');
-                    $this->loadData();
-                }),
+                ->action(fn () => $this->nextDay()),
 
             Action::make('selectDate')
                 ->label('Změnit datum')
@@ -79,74 +90,94 @@ class BusinessPerformance extends Page
             Action::make('refresh')
                 ->label('Aktualizovat')
                 ->icon('heroicon-o-arrow-path')
-                ->color('primary')
-                ->action(function () {
-                    // Force refresh Storyous cache for the selected date
-                    $cacheKey = 'storyous_bills_' . Carbon::parse($this->date)->format('Y-m-d');
-                    Cache::forget($cacheKey);
-                    $this->loadData();
-                }),
+                ->action(fn () => $this->loadData()),
         ];
     }
 
     public function loadData()
     {
-        $date = Carbon::parse($this->date);
+        $carbonDate = Carbon::parse($this->date);
 
-        // 1. Revenue
+        // 1. Storyous Revenue
         /** @var StoryousService $service */
         $service = app(StoryousService::class);
-        $this->revenue = $service->getRevenueForDate($date);
+        $this->revenue = $service->getRevenueForDate($carbonDate);
 
         // 2. Labor Costs
-        // Query shifts starting on this date
+        $this->calculateLaborCosts($carbonDate);
+
+        // 3. Profit
+        $this->profit = $this->revenue - $this->laborCost;
+    }
+
+    protected function calculateLaborCosts(Carbon $date)
+    {
+        // Najdeme směny, které začaly v daný den
+        // (nebo probíhají v daný den? Pro zjednodušení bereme start_at v ten den,
+        // což je standard pro denní uzávěrky v gastru)
         $shifts = WorkShift::with('user')
             ->whereDate('start_at', $date)
             ->get();
 
-        $this->laborCosts = 0.0;
-        $this->shifts = [];
+        $totalCost = 0.0;
+        $shiftData = [];
 
         foreach ($shifts as $shift) {
             $cost = 0.0;
+            $status = 'Uzavřeno';
+            $hours = 0.0;
 
-            // If shift is active (end_at is null)
-            if (!$shift->end_at) {
-                // Calculate current duration
-                $now = now();
-                // If the shift started today, calculate up to now.
-                // If the shift started yesterday but viewing yesterday, calculate up to end of day?
-                // Simplified: use now() if viewing today, or end of day if viewing past?
-                // Or simply: if active, use duration so far.
-
-                // If viewing a past date and shift is somehow still active (forgot to close), calculate until midnight?
-                // But let's assume active shifts are relevant for "today".
-
-                $durationHours = $shift->start_at->diffInHours($now) + ($shift->start_at->diffInMinutes($now) % 60) / 60;
-                $hourlyRate = $shift->user->hourly_rate ?? 0;
-
-                // Active shift cost = hours * rate
-                $cost = $durationHours * $hourlyRate;
+            if ($shift->end_at) {
+                // Uzavřená směna - bereme vypočtenou mzdu
+                // (calculated_wage už zohledňuje typ mzdy fix/hodina v modelu WorkShift)
+                $cost = (float) $shift->calculated_wage;
+                $hours = (float) $shift->total_hours;
             } else {
-                // Finished shift uses calculated_wage + bonus - penalty
-                // Wait, user request: "spočítat náklady na zaměstnance"
-                // Usually Cost = Wage + Employer Taxes etc. But here simple: Wage + Bonus.
-                // Penalty? Usually reduces payout but maybe not cost if damage? Let's assume Cost = Wage + Bonus.
-                $cost = ($shift->calculated_wage ?? 0) + ($shift->bonus ?? 0);
+                // Otevřená směna - musíme dopočítat aktuální náklad
+                $status = 'Probíhá';
+
+                // Pokud směna běží, počítáme do "teď" (nebo do konce dne, pokud se díváme do historie?)
+                // Pokud se díváme na dnešek, je to "teď".
+                // Pokud se díváme na minulost a směna nemá end_at (zapomenutá?), tak je to problém,
+                // ale budeme předpokládat "teď" nebo fixně 0 pokud je to divné.
+                // Pro "Probíhá" dává smysl počítat jen pokud je to dnešní směna.
+
+                $now = now();
+                // Ošetření: pokud je datum v minulosti a směna stále běží, počítáme do teď (dlouhá směna)
+                // nebo to ignorujeme? Zde počítáme duration od startu do teď.
+
+                $start = $shift->start_at;
+                if ($start) {
+                    $minutes = $start->diffInMinutes($now);
+                    $hours = round($minutes / 60, 2);
+
+                    $user = $shift->user;
+                    if ($user) {
+                        if ($user->salary_type === 'fixed') {
+                            // Fixní mzda - celá částka ihned (náklad na směnu je fixní)
+                            $cost = (float) $user->hourly_rate;
+                        } else {
+                            // Hodinová mzda * odpracované hodiny
+                            $cost = $hours * (float) $user->hourly_rate;
+                        }
+                    }
+                }
             }
 
-            $this->laborCosts += $cost;
+            $totalCost += $cost;
 
-            $this->shifts[] = [
-                'user_name' => $shift->user->name ?? 'Unknown',
-                'start_at' => $shift->start_at->format('H:i'),
-                'end_at' => $shift->end_at ? $shift->end_at->format('H:i') : 'Active',
-                'status' => $shift->status,
+            $shiftData[] = [
+                'user_name' => $shift->user->name ?? 'Neznámý',
+                'status' => $status,
+                'start' => $shift->start_at->format('H:i'),
+                'end' => $shift->end_at ? $shift->end_at->format('H:i') : '-',
+                'hours' => $hours,
                 'cost' => $cost,
+                'salary_type' => ($shift->user->salary_type ?? 'hourly') === 'fixed' ? 'Fixní' : 'Hodinová',
             ];
         }
 
-        // 3. Profit
-        $this->profit = $this->revenue - $this->laborCosts;
+        $this->laborCost = $totalCost;
+        $this->shifts = $shiftData;
     }
 }

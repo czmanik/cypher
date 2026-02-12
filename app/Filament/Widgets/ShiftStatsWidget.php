@@ -28,7 +28,8 @@ class ShiftStatsWidget extends BaseWidget
 
         // Managers and Admins always see it
         if ($user->is_manager || $user->is_admin) {
-            return true;
+            // Managers and Admins see StoryousSalesStats instead (which includes Tips & Guests)
+            return false;
         }
 
         // Employees see it ONLY if they have an active shift

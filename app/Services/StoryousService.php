@@ -155,6 +155,38 @@ class StoryousService
     }
 
     /**
+     * Získá detail konkrétní účtenky (včetně položek).
+     *
+     * @param string $billId
+     * @return array|null
+     */
+    public function getBillDetail(string $billId): ?array
+    {
+        $token = $this->getAccessToken();
+
+        if (!$token) {
+            return null;
+        }
+
+        $sourceId = "{$this->settings->merchant_id}-{$this->settings->place_id}";
+        $url = "{$this->baseUrl}/bills/{$sourceId}/{$billId}";
+
+        try {
+            $response = Http::withToken($token)->get($url);
+
+            if ($response->successful()) {
+                return $response->json();
+            } else {
+                Log::error("Storyous API error (Bill Detail) at {$url}: " . $response->body());
+            }
+        } catch (\Exception $e) {
+            Log::error('Storyous API exception (Bill Detail): ' . $e->getMessage());
+        }
+
+        return null;
+    }
+
+    /**
      * Interní metoda pro reálné volání API (bez cache).
      */
     protected function fetchBillsFromApi(Carbon $date): array

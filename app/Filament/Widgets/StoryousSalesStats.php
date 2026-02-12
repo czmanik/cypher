@@ -29,6 +29,8 @@ class StoryousSalesStats extends BaseWidget
 
         // We use 'now()' which includes time, but the service handles day-level caching
         $todayRevenue = $service->getRevenueForDate(now());
+        $todayTips = $service->getTipsForDate(now());
+        $todayGuests = $service->getPersonCountForDate(now());
 
         return [
             Stat::make('Dnešní tržby (Storyous)', number_format($todayRevenue, 0, ',', ' ') . ' Kč')
@@ -41,6 +43,24 @@ class StoryousSalesStats extends BaseWidget
                     'class' => 'cursor-pointer',
                     'title' => 'Kliknutím aktualizujete data',
                     'wire:click' => '$refresh', // Simple Livewire refresh
+                ]),
+
+            Stat::make('Dnešní spropitné (Storyous)', number_format($todayTips, 0, ',', ' ') . ' Kč')
+                ->description('Spropitné ze Storyous API')
+                ->descriptionIcon('heroicon-m-banknotes')
+                ->color('warning')
+                ->extraAttributes([
+                    'class' => 'cursor-pointer',
+                    'wire:click' => '$refresh',
+                ]),
+
+            Stat::make('Počet hostů', number_format($todayGuests, 0, ',', ' '))
+                ->description('Dnes obslouženo')
+                ->descriptionIcon('heroicon-m-users')
+                ->color('primary')
+                ->extraAttributes([
+                    'class' => 'cursor-pointer',
+                    'wire:click' => '$refresh',
                 ]),
         ];
     }

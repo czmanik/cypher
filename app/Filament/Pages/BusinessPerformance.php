@@ -122,11 +122,17 @@ class BusinessPerformance extends Page
                 // If viewing a past date and shift is somehow still active (forgot to close), calculate until midnight?
                 // But let's assume active shifts are relevant for "today".
 
-                $durationHours = $shift->start_at->diffInHours($now) + ($shift->start_at->diffInMinutes($now) % 60) / 60;
                 $hourlyRate = $shift->user->hourly_rate ?? 0;
 
-                // Active shift cost = hours * rate
-                $cost = $durationHours * $hourlyRate;
+                // Check salary type (fixed vs hourly)
+                if (($shift->user->salary_type ?? 'hourly') === 'fixed') {
+                    // Fixed salary per shift - entire cost counts immediately (or we could split it, but worst case is full cost)
+                    $cost = $hourlyRate;
+                } else {
+                    // Hourly salary - calculate based on duration so far
+                    $durationHours = $shift->start_at->diffInHours($now) + ($shift->start_at->diffInMinutes($now) % 60) / 60;
+                    $cost = $durationHours * $hourlyRate;
+                }
             } else {
                 // Finished shift uses calculated_wage + bonus - penalty
                 // Wait, user request: "spočítat náklady na zaměstnance"

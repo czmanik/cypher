@@ -62,6 +62,11 @@ class StoryousTestConnection extends Command
         $this->info("\nTesting Current Service Logic (Fetch Bills for Today)...");
         $today = Carbon::today();
 
+        // Force clear cache for today to ensure we test the API, not the cache
+        $cacheKey = 'storyous_bills_' . $today->format('Y-m-d');
+        \Illuminate\Support\Facades\Cache::forget($cacheKey);
+        $this->info("(Cache cleared for key: {$cacheKey})");
+
         // We use a try-catch block to handle potential crashes in the service
         try {
             // Use reflection or just call the public method

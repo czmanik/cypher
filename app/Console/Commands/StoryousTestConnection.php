@@ -104,8 +104,8 @@ class StoryousTestConnection extends Command
             $this->line('Body: ' . $response->body());
         }
 
-        // 5. Compare with "Current Logic" Raw Request to see why it fails
-        $this->info("\nDebugging Current Service Logic (Raw Request)...");
+        // 5. Compare with "Old/Broken Logic" to demonstrate why the fix was needed
+        $this->info("\nSimulating Old/Broken Logic (Raw Request)...");
         $oldUrl = "https://api.storyous.com/bills";
         $oldParams = [
             'merchantId' => $settings->merchant_id,
@@ -120,10 +120,10 @@ class StoryousTestConnection extends Command
         $responseOld = Http::withToken($token)->get($oldUrl, $oldParams);
         $this->line("Status Code: " . $responseOld->status());
         if (!$responseOld->successful()) {
-             $this->error('Current Service API Call FAILED.');
+             $this->error('Old Logic Call FAILED (Expected).');
              $this->line('Body: ' . $responseOld->body());
         } else {
-             $this->info('Current Service API Call SUCCESS (Unexpected).');
+             $this->info('Old Logic Call SUCCESS (Unexpected).');
         }
 
         $this->info("\nTest Complete.");

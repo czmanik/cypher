@@ -104,7 +104,10 @@ class StoryousService
     {
         // 1. Zkontrolujeme, zda máme nezbytné klíče
         if (empty($this->settings->merchant_id) || empty($this->settings->place_id)) {
-            Log::warning('Storyous API: Missing Merchant ID or Place ID.');
+            Log::warning('Storyous API: Missing Merchant ID or Place ID.', [
+                'merchant_id' => $this->settings->merchant_id,
+                'place_id' => $this->settings->place_id,
+            ]);
             return [];
         }
 
@@ -128,6 +131,7 @@ class StoryousService
         $token = $this->getAccessToken();
 
         if (!$token) {
+            Log::warning('Storyous API: No access token available.');
             return [];
         }
 
@@ -142,6 +146,8 @@ class StoryousService
             // Endpoint: /bills/{merchantId}-{placeId}
             // Parametry: from, till
             $url = "{$this->baseUrl}/bills/{$sourceId}";
+
+            Log::info("Storyous API: Fetching bills.", ['url' => $url, 'from' => $from, 'till' => $till]);
 
             $response = Http::withToken($token)
                 ->get($url, [

@@ -76,6 +76,37 @@ class StoryousService
     }
 
     /**
+     * Získá celkové spropitné za daný den.
+     *
+     * @param Carbon $date
+     * @return float
+     */
+    public function getTipsForDate(Carbon $date): float
+    {
+        $bills = $this->getBillsForDate($date);
+
+        return collect($bills)->sum(function ($bill) {
+            // Tips is usually a string like "10.00"
+            return (float) ($bill['tips'] ?? 0.0);
+        });
+    }
+
+    /**
+     * Získá celkový počet hostů za daný den.
+     *
+     * @param Carbon $date
+     * @return int
+     */
+    public function getPersonCountForDate(Carbon $date): int
+    {
+        $bills = $this->getBillsForDate($date);
+
+        return collect($bills)->sum(function ($bill) {
+            return (int) ($bill['personCount'] ?? 0);
+        });
+    }
+
+    /**
      * Helper pro testování připojení (vrací true/false).
      * Zkouší získat token. Pokud se to podaří, klíče jsou platné.
      */
@@ -104,7 +135,10 @@ class StoryousService
     {
         // 1. Zkontrolujeme, zda máme nezbytné klíče
         if (empty($this->settings->merchant_id) || empty($this->settings->place_id)) {
-            Log::warning('Storyous API: Missing Merchant ID or Place ID.');
+            Log::warning('Storyous API: Missing Merchant ID or Place ID.', [
+                'merchant_id' => $this->settings->merchant_id,
+                'place_id' => $this->settings->place_id,
+            ]);
             return [];
         }
 
@@ -128,24 +162,29 @@ class StoryousService
         $token = $this->getAccessToken();
 
         if (!$token) {
+            Log::warning('Storyous API: No access token available.');
             return [];
         }
 
         // Časové rozmezí pro daný den
-        $createdFrom = $date->copy()->startOfDay()->toIso8601String();
-        $createdTo = $date->copy()->endOfDay()->toIso8601String();
+        $from = $date->copy()->startOfDay()->toIso8601String();
+        $till = $date->copy()->endOfDay()->toIso8601String();
+
+        $sourceId = "{$this->settings->merchant_id}-{$this->settings->place_id}";
 
         try {
             // Volání API pro získání účtenek
-            // Endpoint: /bills
-            // Parametry: merchantId, placeId, createdFrom, createdTo
+            // Endpoint: /bills/{merchantId}-{placeId}
+            // Parametry: from, till
+            $url = "{$this->baseUrl}/bills/{$sourceId}";
+
+            Log::info("Storyous API: Fetching bills.", ['url' => $url, 'from' => $from, 'till' => $till, 'limit' => 100]);
+
             $response = Http::withToken($token)
-                ->get("{$this->baseUrl}/bills", [
-                    'merchantId' => $this->settings->merchant_id,
-                    'placeId' => $this->settings->place_id,
-                    'createdFrom' => $createdFrom,
-                    'createdTo' => $createdTo,
-                    'limit' => 1000, // Načíst dostatek záznamů
+                ->get($url, [
+                    'from' => $from,
+                    'till' => $till,
+                    'limit' => '100', // Sníženo na 100 a přetypováno na string pro jistotu
                 ]);
 
             if ($response->successful()) {
@@ -161,7 +200,7 @@ class StoryousService
 
                 return $bills;
             } else {
-                Log::error("Storyous API error (Bills): Status {$response->status()}, Body: " . $response->body());
+                Log::error("Storyous API error (Bills) at {$url}: Status {$response->status()}, Body: " . $response->body());
             }
 
         } catch (\Exception $e) {

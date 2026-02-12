@@ -23,11 +23,13 @@ class StoryousStats extends Page
     public $totalRevenue = 0.0;
     public $billsCount = 0;
     public $bills = [];
+    public $selectedBill = null;
 
     public function mount()
     {
-        $this->date = now()->format('Y-m-d');
-        $this->loadDataForDate(now());
+        // Check if date is passed in query string (e.g. from redirect)
+        $this->date = request()->query('date', now()->format('Y-m-d'));
+        $this->loadDataForDate(Carbon::parse($this->date));
     }
 
     public static function canAccess(): bool
@@ -47,16 +49,24 @@ class StoryousStats extends Page
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('refresh')
-                ->label('Načíst data (Aktualizovat)')
-                ->icon('heroicon-o-arrow-path')
-                ->color('primary')
+            Action::make('previousDay')
+                ->label('Předchozí den')
+                ->icon('heroicon-o-chevron-left')
+                ->color('gray')
                 ->action(function () {
-                    // Force refresh cache for the selected date
-                    $cacheKey = 'storyous_bills_' . Carbon::parse($this->date)->format('Y-m-d');
-                    Cache::forget($cacheKey);
+                    $newDate = Carbon::parse($this->date)->subDay();
+                    $this->date = $newDate->format('Y-m-d');
+                    $this->loadDataForDate($newDate);
+                }),
 
-                    $this->loadDataForDate(Carbon::parse($this->date));
+            Action::make('nextDay')
+                ->label('Následující den')
+                ->icon('heroicon-o-chevron-right')
+                ->color('gray')
+                ->action(function () {
+                    $newDate = Carbon::parse($this->date)->addDay();
+                    $this->date = $newDate->format('Y-m-d');
+                    $this->loadDataForDate($newDate);
                 }),
 
             Action::make('selectDate')
@@ -72,7 +82,25 @@ class StoryousStats extends Page
                     $this->date = Carbon::parse($data['date_picker'])->format('Y-m-d');
                     $this->loadDataForDate(Carbon::parse($this->date));
                 }),
+
+            Action::make('refresh')
+                ->label('Aktualizovat')
+                ->icon('heroicon-o-arrow-path')
+                ->color('primary')
+                ->action(function () {
+                    // Force refresh cache for the selected date
+                    $cacheKey = 'storyous_bills_' . Carbon::parse($this->date)->format('Y-m-d');
+                    Cache::forget($cacheKey);
+
+                    $this->loadDataForDate(Carbon::parse($this->date));
+                }),
         ];
+    }
+
+    public function openBillDetail(string $billId)
+    {
+        $this->selectedBill = collect($this->bills)->firstWhere('billId', $billId);
+        $this->dispatch('open-modal', id: 'bill-detail-modal');
     }
 
     public function loadDataForDate(Carbon $date)

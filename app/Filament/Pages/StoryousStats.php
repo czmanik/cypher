@@ -57,6 +57,11 @@ class StoryousStats extends Page
     public function nextDay()
     {
         $newDate = Carbon::parse($this->date)->addDay();
+
+        if ($newDate->isFuture()) {
+            return;
+        }
+
         $this->date = $newDate->format('Y-m-d');
         $this->loadDataForDate($newDate);
     }

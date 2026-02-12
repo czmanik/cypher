@@ -9,41 +9,41 @@
                 {{ number_format($revenue, 0, ',', ' ') }} Kč
             </div>
             <div class="text-sm text-gray-500 mt-2">
-                Zahrnuje všechny zaplacené účtenky.
+                Tržby za vybraný den
             </div>
         </x-filament::section>
 
-        <!-- Labor Costs -->
+        <!-- Labor Cost -->
         <x-filament::section>
             <x-slot name="heading">
-                Náklady na mzdy
+                Náklady na personál
             </x-slot>
             <div class="text-3xl font-bold text-danger-600 dark:text-danger-400">
-                {{ number_format($laborCosts, 0, ',', ' ') }} Kč
+                {{ number_format($laborCost, 0, ',', ' ') }} Kč
             </div>
             <div class="text-sm text-gray-500 mt-2">
-                Mzdy zaměstnanců na směně (včetně aktivních).
+                Mzdy za směny (včetně probíhajících)
             </div>
         </x-filament::section>
 
-        <!-- Net Result -->
+        <!-- Profit -->
         <x-filament::section>
             <x-slot name="heading">
                 Hrubý zisk (Tržba - Mzdy)
             </x-slot>
-            <div class="text-3xl font-bold {{ $profit >= 0 ? 'text-primary-600 dark:text-primary-400' : 'text-danger-600 dark:text-danger-400' }}">
+            <div class="text-3xl font-bold {{ $profit >= 0 ? 'text-primary-600' : 'text-danger-600' }}">
                 {{ number_format($profit, 0, ',', ' ') }} Kč
             </div>
             <div class="text-sm text-gray-500 mt-2">
-                Výsledek hospodaření pro tento den (před zdaněním a surovinami).
+                Rozdíl mezi tržbou a náklady na směny
             </div>
         </x-filament::section>
     </div>
 
-    <!-- Shifts Detail Table -->
+    <!-- Shifts Breakdown -->
     <x-filament::section>
         <x-slot name="heading">
-            Detail směn a mzdových nákladů
+            Detail směn a nákladů
         </x-slot>
 
         @if(count($shifts) > 0)
@@ -52,44 +52,44 @@
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
                         <tr>
                             <th scope="col" class="px-6 py-3">Zaměstnanec</th>
-                            <th scope="col" class="px-6 py-3">Start</th>
-                            <th scope="col" class="px-6 py-3">Konec</th>
                             <th scope="col" class="px-6 py-3">Stav</th>
+                            <th scope="col" class="px-6 py-3">Typ mzdy</th>
+                            <th scope="col" class="px-6 py-3">Začátek</th>
+                            <th scope="col" class="px-6 py-3">Konec</th>
+                            <th scope="col" class="px-6 py-3">Hodiny (cca)</th>
                             <th scope="col" class="px-6 py-3 text-right">Náklad (Kč)</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach($shifts as $shift)
-                            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700">
+                            <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                 <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
                                     {{ $shift['user_name'] }}
                                 </td>
                                 <td class="px-6 py-4">
-                                    {{ $shift['start_at'] }}
+                                    @if($shift['status'] === 'Probíhá')
+                                        <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-green-900 dark:text-green-300">
+                                            Probíhá
+                                        </span>
+                                    @else
+                                        <span class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-gray-700 dark:text-gray-300">
+                                            Uzavřeno
+                                        </span>
+                                    @endif
                                 </td>
                                 <td class="px-6 py-4">
-                                    {{ $shift['end_at'] }}
+                                    {{ $shift['salary_type'] }}
                                 </td>
                                 <td class="px-6 py-4">
-                                    <x-filament::badge :color="match($shift['status']) {
-                                        'active' => 'success',
-                                        'pending_approval' => 'warning',
-                                        'approved' => 'info',
-                                        'paid' => 'success',
-                                        'rejected' => 'danger',
-                                        default => 'gray',
-                                    }">
-                                        {{ match($shift['status']) {
-                                            'active' => 'Aktivní',
-                                            'pending_approval' => 'Čeká na schválení',
-                                            'approved' => 'Schváleno',
-                                            'paid' => 'Proplaceno',
-                                            'rejected' => 'Zamítnuto',
-                                            default => $shift['status'],
-                                        } }}
-                                    </x-filament::badge>
+                                    {{ $shift['start'] }}
                                 </td>
-                                <td class="px-6 py-4 text-right font-bold">
+                                <td class="px-6 py-4">
+                                    {{ $shift['end'] }}
+                                </td>
+                                <td class="px-6 py-4">
+                                    {{ number_format($shift['hours'], 2) }} h
+                                </td>
+                                <td class="px-6 py-4 text-right font-bold text-danger-600">
                                     {{ number_format($shift['cost'], 0, ',', ' ') }}
                                 </td>
                             </tr>
@@ -103,4 +103,5 @@
             </div>
         @endif
     </x-filament::section>
+
 </x-filament-panels::page>

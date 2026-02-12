@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <!-- Summary Widgets -->
         <x-filament::section>
             <x-slot name="heading">
@@ -19,6 +19,15 @@
             </div>
         </x-filament::section>
 
+        <x-filament::section>
+            <x-slot name="heading">
+                Počet hostů
+            </x-slot>
+            <div class="text-3xl font-bold text-primary-600 dark:text-primary-400">
+                {{ $totalGuests > 0 ? $totalGuests : 'N/A' }}
+            </div>
+        </x-filament::section>
+
         <!-- Date Display -->
         <x-filament::section>
             <x-slot name="heading">
@@ -28,6 +37,30 @@
                 {{ \Carbon\Carbon::parse($date)->format('d.m.Y') }}
             </div>
         </x-filament::section>
+    </div>
+
+    <!-- Date Navigation -->
+    <div class="flex items-center justify-between bg-white dark:bg-gray-800 p-4 rounded-lg shadow mb-4">
+        <x-filament::button
+            color="gray"
+            icon="heroicon-o-chevron-left"
+            wire:click="previousDay"
+        >
+            Předchozí den
+        </x-filament::button>
+
+        <div class="text-lg font-bold">
+            {{ \Carbon\Carbon::parse($date)->format('d.m.Y') }}
+        </div>
+
+        <x-filament::button
+            color="gray"
+            icon="heroicon-o-chevron-right"
+            icon-position="after"
+            wire:click="nextDay"
+        >
+            Následující den
+        </x-filament::button>
     </div>
 
     <!-- Simple Table for Data -->
@@ -126,9 +159,32 @@
 
                 <div>
                     <h3 class="font-bold text-lg mb-2">Položky a Platby</h3>
-                    <!-- Assuming 'items' key exists if Storyous provides detail, but bills list usually doesn't have items. -->
-                    <!-- Usually detailed bill requires another API call /bills/{billId}, but for now we show what we have in the list object. -->
-                    <!-- The list object has 'payments', 'taxes', etc. -->
+
+                    @if(isset($selectedBill['items']) && is_array($selectedBill['items']))
+                        <div class="mb-4">
+                            <h4 class="font-semibold mb-2">Objednané položky</h4>
+                            <table class="w-full text-sm text-left">
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                                    <tr>
+                                        <th class="px-2 py-1">Název</th>
+                                        <th class="px-2 py-1 text-right">Množství</th>
+                                        <th class="px-2 py-1 text-right">Cena/ks</th>
+                                        <th class="px-2 py-1 text-right">Celkem</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($selectedBill['items'] as $item)
+                                        <tr class="border-b dark:border-gray-700">
+                                            <td class="px-2 py-1">{{ $item['name'] ?? 'Neznámá položka' }}</td>
+                                            <td class="px-2 py-1 text-right">{{ $item['amount'] ?? 1 }} {{ $item['measure'] ?? 'ks' }}</td>
+                                            <td class="px-2 py-1 text-right">{{ number_format((float)($item['unitPriceWithVat'] ?? $item['price'] ?? 0), 2) }}</td>
+                                            <td class="px-2 py-1 text-right font-semibold">{{ number_format((float)($item['priceWithVat'] ?? 0), 2) }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
 
                     @if(isset($selectedBill['payments']) && is_array($selectedBill['payments']))
                          <h4 class="font-semibold mt-2">Platby</h4>

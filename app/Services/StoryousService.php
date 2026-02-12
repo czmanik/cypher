@@ -147,13 +147,13 @@ class StoryousService
             // Parametry: from, till
             $url = "{$this->baseUrl}/bills/{$sourceId}";
 
-            Log::info("Storyous API: Fetching bills.", ['url' => $url, 'from' => $from, 'till' => $till]);
+            Log::info("Storyous API: Fetching bills.", ['url' => $url, 'from' => $from, 'till' => $till, 'limit' => 100]);
 
             $response = Http::withToken($token)
                 ->get($url, [
                     'from' => $from,
                     'till' => $till,
-                    'limit' => 1000, // Načíst dostatek záznamů
+                    'limit' => '100', // Sníženo na 100 a přetypováno na string pro jistotu
                 ]);
 
             if ($response->successful()) {

@@ -16,7 +16,14 @@ return new class extends Migration
         if ($setting) {
             $payload = json_decode($setting->payload, true);
 
-            if (is_null($payload)) {
+            // Handle double-encoded JSON (which sometimes happens if saved incorrectly before)
+            // Or if json_decode returns a string for some other reason.
+            if (is_string($payload)) {
+                $payload = json_decode($payload, true);
+            }
+
+            // If decoding failed completely or result is still not an array (e.g. null, boolean, int)
+            if (!is_array($payload)) {
                 $payload = [];
             }
 
@@ -56,6 +63,10 @@ return new class extends Migration
 
         if ($setting) {
             $payload = json_decode($setting->payload, true);
+
+            if (is_string($payload)) {
+                $payload = json_decode($payload, true);
+            }
 
             if (is_array($payload) && array_key_exists('sync_start_date', $payload)) {
                 unset($payload['sync_start_date']);

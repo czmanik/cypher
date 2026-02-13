@@ -34,7 +34,7 @@ class ManageStoryous extends SettingsPage
             Action::make('testConnection')
                 ->label('Ověřit spojení')
                 ->icon('heroicon-o-check-circle')
-                ->color('success') // Green button
+                ->color('success')
                 ->action(function (StoryousService $service) {
                     if ($service->testConnection()) {
                         Notification::make()
@@ -46,6 +46,71 @@ class ManageStoryous extends SettingsPage
                         Notification::make()
                             ->title('Chyba spojení')
                             ->body('Nepodařilo se připojit k API. Zkontrolujte klíče.')
+                            ->danger()
+                            ->send();
+                    }
+                }),
+
+            Action::make('importMenu')
+                ->label('Importovat Menu')
+                ->icon('heroicon-o-cloud-arrow-down')
+                ->color('primary')
+                ->requiresConfirmation()
+                ->modalHeading('Importovat Menu ze Storyous')
+                ->modalDescription('Tato akce stáhne kategorie a produkty. Nové položky budou skryté. Existující položky se aktualizují (název, cena).')
+                ->action(function (StoryousService $service) {
+                    $result = $service->importMenu();
+
+                    if (isset($result['status']) && $result['status'] === 'success') {
+                        $stats = $result['stats'];
+                        Notification::make()
+                            ->title('Menu importováno')
+                            ->body("Kategorie: +{$stats['categories_created']} (upraveno {$stats['categories_updated']})\nProdukty: +{$stats['products_created']} (upraveno {$stats['products_updated']})\nPřejmenováno starých: {$stats['products_renamed_old']}")
+                            ->success()
+                            ->persistent()
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('Chyba importu')
+                            ->body($result['message'] ?? 'Neznámá chyba')
+                            ->danger()
+                            ->send();
+                    }
+                }),
+
+            Action::make('syncBills')
+                ->label('Synchronizovat Účtenky')
+                ->icon('heroicon-o-arrow-path')
+                ->color('warning')
+                ->requiresConfirmation()
+                ->modalHeading('Synchronizace účtenek')
+                ->modalDescription('Tato akce může trvat delší dobu v závislosti na zvoleném období.')
+                ->form([
+                    Forms\Components\DatePicker::make('from_date')
+                        ->label('Od data')
+                        ->helperText('Pokud nevyplníte, použije se nastavené datum synchronizace.')
+                        ->maxDate(now()),
+                ])
+                ->action(function (array $data, StoryousService $service) {
+                    $fromDate = $data['from_date'] ? \Carbon\Carbon::parse($data['from_date']) : null;
+
+                    // Increase timeout for this request if possible, or assume it runs fast enough per chunk
+                    set_time_limit(300); // 5 minutes
+
+                    $result = $service->syncBills($fromDate);
+
+                    if (isset($result['status']) && $result['status'] === 'success') {
+                        $stats = $result['stats'];
+                        Notification::make()
+                            ->title('Synchronizace dokončena')
+                            ->body("Zpracováno dní: {$stats['processed_days']}\nÚčtenky nové: {$stats['bills_created']}\nÚčtenky aktualizované: {$stats['bills_updated']}\nChyby: {$stats['errors']}")
+                            ->success()
+                            ->persistent()
+                            ->send();
+                    } else {
+                        Notification::make()
+                            ->title('Chyba synchronizace')
+                            ->body($result['message'] ?? 'Neznámá chyba')
                             ->danger()
                             ->send();
                     }
@@ -77,6 +142,15 @@ class ManageStoryous extends SettingsPage
                         Forms\Components\TextInput::make('place_id')
                             ->label('Place ID')
                             ->helperText('Identifikátor provozovny (nahrazuje původní API Key field)'),
+                    ]),
+
+                Forms\Components\Section::make('Nastavení synchronizace')
+                    ->description('Konfigurace pro stahování dat.')
+                    ->schema([
+                        Forms\Components\DatePicker::make('sync_start_date')
+                            ->label('Datum začátku synchronizace')
+                            ->helperText('Datum, od kterého se budou stahovat účtenky. Pokud je prázdné, použije se výchozí (poslední měsíc).')
+                            ->required(),
                     ]),
             ]);
     }

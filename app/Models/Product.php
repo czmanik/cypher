@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo; // Důležitý import
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Product extends Model
 {
@@ -19,17 +19,17 @@ class Product extends Model
         'is_available',
         'stock_qty',
         'is_shippable',
+        'storyous_id',
+        'vat_rate',
     ];
 
     protected $casts = [
         'is_available' => 'boolean',
         'is_shippable' => 'boolean',
         'price' => 'decimal:2',
+        'vat_rate' => 'decimal:2',
     ];
 
-    /**
-     * Vztah: Produkt patří do jedné Kategorie.
-     */
     public function category(): BelongsTo
     {
         return $this->belongsTo(Category::class);

@@ -6,6 +6,7 @@ use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use App\Services\StoryousService;
 use Carbon\Carbon;
+use App\Filament\Pages\OpenBills;
 
 class StoryousSalesStats extends BaseWidget
 {
@@ -32,7 +33,24 @@ class StoryousSalesStats extends BaseWidget
         $todayTips = $service->getTipsForDate(now());
         $todayGuests = $service->getPersonCountForDate(now());
 
+        // Otevřené účty (nekešované, aktuální stav)
+        $openBills = $service->getOpenBills();
+        $openAmount = collect($openBills)->filter(function ($bill) {
+            // Filter out "personální"
+            $category = $bill['categoryName'] ?? $bill['category'] ?? '';
+            // Kontrola na "personální" (case-insensitive, unicode safe)
+            return mb_stripos($category, 'personální') === false;
+        })->sum(function ($bill) {
+            return (float)($bill['totalAmount'] ?? $bill['finalPrice'] ?? $bill['price'] ?? 0);
+        });
+
         return [
+            Stat::make('Otevřené účty', number_format($openAmount, 0, ',', ' ') . ' Kč')
+                ->description('Aktuálně otevřené stoly')
+                ->descriptionIcon('heroicon-m-clock')
+                ->color('info')
+                ->url(OpenBills::getUrl()),
+
             Stat::make('Dnešní tržby (Storyous)', number_format($todayRevenue, 0, ',', ' ') . ' Kč')
                 ->description('Aktuální data ze Storyous API')
                 ->descriptionIcon('heroicon-m-banknotes')

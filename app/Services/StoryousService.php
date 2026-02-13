@@ -129,9 +129,11 @@ class StoryousService
      * Získá seznam účtenek za daný den (kešováno).
      *
      * @param Carbon $date
+     * @param Carbon|null $customFrom Volitelný začátek (pokud null, bere se začátek dne)
+     * @param Carbon|null $customTill Volitelný konec (pokud null, bere se konec dne)
      * @return array
      */
-    public function getBillsForDate(Carbon $date): array
+    public function getBillsForDate(Carbon $date, ?Carbon $customFrom = null, ?Carbon $customTill = null): array
     {
         // 1. Zkontrolujeme, zda máme nezbytné klíče
         if (empty($this->settings->merchant_id) || empty($this->settings->place_id)) {
@@ -142,16 +144,69 @@ class StoryousService
             return [];
         }
 
-        // Cache klíč: storyous_bills_YYYY-MM-DD
-        $cacheKey = 'storyous_bills_' . $date->format('Y-m-d');
+        // Cache klíč: storyous_bills_YYYY-MM-DD_From_Till
+        // Pokud používáme custom range, přidáme ho do klíče
+        $suffix = '';
+        if ($customFrom && $customTill) {
+            $suffix = '_' . $customFrom->timestamp . '_' . $customTill->timestamp;
+        }
 
-        // Pokud jde o dnešek, kešujeme krátce (např. 15 min), aby se data aktualizovala během dne.
-        // Pokud jde o minulost, můžeme kešovat déle (např. 24 hodin), protože se data nemění.
-        $ttl = $date->isToday() ? now()->addMinutes(15) : now()->addHours(24);
+        $cacheKey = 'storyous_bills_' . $date->format('Y-m-d') . $suffix;
 
-        return Cache::remember($cacheKey, $ttl, function () use ($date) {
-            return $this->fetchBillsFromApi($date);
+        // Pokud jde o dnešek (nebo range zasahující do dneška), kešujeme krátce.
+        $isToday = $date->isToday();
+        if ($customTill && $customTill->isFuture()) {
+             $isToday = true;
+        }
+
+        $ttl = $isToday ? now()->addMinutes(15) : now()->addHours(24);
+
+        return Cache::remember($cacheKey, $ttl, function () use ($date, $customFrom, $customTill) {
+            return $this->fetchBillsFromApi($date, $customFrom, $customTill);
         });
+    }
+
+    /**
+     * Získá aktuálně otevřené účty (stoly).
+     *
+     * @return array
+     */
+    public function getOpenBills(): array
+    {
+        $token = $this->getAccessToken();
+        if (!$token) {
+            return [];
+        }
+
+        // Endpoint pro otevřené stoly/účty: /places/{placeId}/tables
+        // nebo /bills s filtrem, ale tables je pravděpodobnější pro "open" stav.
+        // Zkusíme /places/{placeId}/tables
+        $sourceId = "{$this->settings->place_id}";
+        $url = "{$this->baseUrl}/places/{$sourceId}/tables";
+
+        // Fallback: Pokud tables endpoint nefunguje, zkusíme standardní bills endpoint bez till parametru?
+        // Ne, standardní bills vrací historii.
+        // Dokumentace není k dispozici, zkusíme best-effort odhad.
+
+        try {
+            $response = Http::withToken($token)->get($url);
+
+            if ($response->successful()) {
+                 $data = $response->json();
+                 return $data['data'] ?? $data ?? [];
+            }
+
+            // Pokud tables neexistuje (404), zkusíme /bills?state=open
+            // (Toto je spekulativní, ale lepší než nic)
+            // $url2 = "{$this->baseUrl}/bills/{$this->settings->merchant_id}-{$this->settings->place_id}?state=open";
+            // ...
+
+            Log::warning("Storyous API (Open Bills): Failed to fetch from {$url}. Status: " . $response->status());
+        } catch (\Exception $e) {
+            Log::error('Storyous API exception (Open Bills): ' . $e->getMessage());
+        }
+
+        return [];
     }
 
     /**
@@ -189,7 +244,7 @@ class StoryousService
     /**
      * Interní metoda pro reálné volání API (bez cache).
      */
-    protected function fetchBillsFromApi(Carbon $date): array
+    protected function fetchBillsFromApi(Carbon $date, ?Carbon $customFrom = null, ?Carbon $customTill = null): array
     {
         $token = $this->getAccessToken();
 
@@ -198,9 +253,9 @@ class StoryousService
             return [];
         }
 
-        // Časové rozmezí pro daný den
-        $from = $date->copy()->startOfDay()->toIso8601String();
-        $till = $date->copy()->endOfDay()->toIso8601String();
+        // Časové rozmezí
+        $from = ($customFrom ?? $date->copy()->startOfDay())->toIso8601String();
+        $till = ($customTill ?? $date->copy()->endOfDay())->toIso8601String();
 
         $sourceId = "{$this->settings->merchant_id}-{$this->settings->place_id}";
 
@@ -210,13 +265,13 @@ class StoryousService
             // Parametry: from, till
             $url = "{$this->baseUrl}/bills/{$sourceId}";
 
-            Log::info("Storyous API: Fetching bills.", ['url' => $url, 'from' => $from, 'till' => $till, 'limit' => 100]);
+            Log::info("Storyous API: Fetching bills.", ['url' => $url, 'from' => $from, 'till' => $till, 'limit' => 500]); // Zvýšeno na 500 pro jistotu
 
             $response = Http::withToken($token)
                 ->get($url, [
                     'from' => $from,
                     'till' => $till,
-                    'limit' => '100', // Sníženo na 100 a přetypováno na string pro jistotu
+                    'limit' => '500',
                 ]);
 
             if ($response->successful()) {

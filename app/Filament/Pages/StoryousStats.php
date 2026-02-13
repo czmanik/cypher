@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\WorkShift;
 use App\Services\StoryousService;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -23,6 +24,12 @@ class StoryousStats extends Page
     public $totalRevenue = 0.0;
     public $billsCount = 0;
     public $totalGuests = 0;
+    public $totalTips = 0.0;
+    public $totalDiscount = 0.0;
+
+    public $operationalFrom = null;
+    public $operationalTill = null;
+
     public $bills = [];
     public $selectedBill = null;
 
@@ -131,8 +138,13 @@ class StoryousStats extends Page
         /** @var StoryousService $service */
         $service = app(StoryousService::class);
 
-        // Fetch bills (uses cache unless cleared)
-        $this->bills = $service->getBillsForDate($date);
+        // Calculate operational range based on shifts
+        $range = $this->calculateOperationalTimes($date);
+        $this->operationalFrom = $range['from'];
+        $this->operationalTill = $range['till'];
+
+        // Fetch bills with custom range
+        $this->bills = $service->getBillsForDate($date, $this->operationalFrom, $this->operationalTill);
 
         $this->billsCount = count($this->bills);
 
@@ -143,5 +155,49 @@ class StoryousStats extends Page
         $this->totalGuests = collect($this->bills)->sum(function ($bill) {
             return (int)($bill['personCount'] ?? 0);
         });
+
+        $this->totalTips = collect($this->bills)->sum(function ($bill) {
+            return (float)($bill['tips'] ?? 0.0);
+        });
+
+        $this->totalDiscount = collect($this->bills)->sum(function ($bill) {
+            return (float)($bill['discount'] ?? 0.0);
+        });
+    }
+
+    protected function calculateOperationalTimes(Carbon $date): array
+    {
+        // Najít směny začínající v daný den (00:00 - 23:59)
+        $shifts = WorkShift::whereDate('start_at', $date)->get();
+
+        if ($shifts->isEmpty()) {
+            // Pokud nejsou směny, bereme celý den 00:00 - 23:59 (default)
+            return [
+                'from' => $date->copy()->startOfDay(),
+                'till' => $date->copy()->endOfDay(),
+            ];
+        }
+
+        // Začátek = start první směny
+        $minStart = $shifts->min('start_at');
+
+        // Konec = konec poslední směny. Pokud je nějaká směna aktivní (end_at=null), tak "teď".
+        $activeShifts = $shifts->whereNull('end_at');
+        if ($activeShifts->isNotEmpty()) {
+            $maxEnd = now();
+            // Pokud se díváme do historie a někdo neuzavřel směnu, mohlo by to vzít "teď" i po měsíci.
+            // Ošetření: Pokud den není dnešek, omezíme maxEnd na konec dne + 6h (např. 06:00 ráno další den)
+            // Ale pro jednoduchost, pokud je to historie, bereme konec dne, pokud směna nebyla ukončena.
+            if (!$date->isToday()) {
+                $maxEnd = $date->copy()->endOfDay(); // Fallback
+            }
+        } else {
+            $maxEnd = $shifts->max('end_at');
+        }
+
+        return [
+            'from' => $minStart ? Carbon::parse($minStart) : $date->copy()->startOfDay(),
+            'till' => $maxEnd ? Carbon::parse($maxEnd) : $date->copy()->endOfDay(),
+        ];
     }
 }

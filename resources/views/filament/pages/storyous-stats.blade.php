@@ -75,10 +75,29 @@
             Detail účtenek
         </x-slot>
 
+        <x-slot name="description">
+            <div class="text-sm text-gray-500">
+                Data za období (uzávěrka):
+                <span class="font-semibold">{{ $operationalFrom?->format('d.m. H:i') }}</span>
+                -
+                <span class="font-semibold">{{ $operationalTill?->format('d.m. H:i') }}</span>
+            </div>
+        </x-slot>
+
         @if(count($bills) > 0)
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left rtl:text-right text-gray-500 dark:text-gray-400">
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                        <!-- Summary Row (Top) -->
+                        <tr class="bg-gray-100 dark:bg-gray-900 font-bold border-b dark:border-gray-600 text-base">
+                            <td colspan="2" class="px-6 py-3 text-right">Celkem:</td>
+                            <td class="px-6 py-3 text-primary-600">{{ $totalGuests }}</td>
+                            <td class="px-6 py-3 text-success-600">{{ number_format($totalTips, 0, ',', ' ') }} Kč</td>
+                            <td class="px-6 py-3 text-danger-600">{{ number_format($totalDiscount, 0, ',', ' ') }} Kč</td>
+                            <td class="px-6 py-3 text-gray-900 dark:text-white">{{ number_format($totalRevenue, 0, ',', ' ') }} Kč</td>
+                            <td></td>
+                        </tr>
+                        <!-- Headers -->
                         <tr>
                             <th scope="col" class="px-6 py-3">Čas</th>
                             <th scope="col" class="px-6 py-3">ID Účtenky</th>
@@ -93,7 +112,7 @@
                         @foreach($bills as $bill)
                             <tr class="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                                 <td class="px-6 py-4">
-                                    {{ isset($bill['created']) ? \Carbon\Carbon::parse($bill['created'])->format('H:i:s') : 'N/A' }}
+                                    {{ isset($bill['created']) ? \Carbon\Carbon::parse($bill['created'])->setTimezone('Europe/Prague')->format('H:i:s') : 'N/A' }}
                                 </td>
                                 <td class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap dark:text-white">
                                     {{ $bill['billId'] ?? $bill['_id'] ?? 'N/A' }}
@@ -126,6 +145,17 @@
                             </tr>
                         @endforeach
                     </tbody>
+                    <tfoot class="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-700 dark:text-gray-400">
+                         <!-- Summary Row (Bottom) -->
+                        <tr class="bg-gray-100 dark:bg-gray-900 font-bold border-t dark:border-gray-600 text-base">
+                            <td colspan="2" class="px-6 py-3 text-right">Celkem:</td>
+                            <td class="px-6 py-3 text-primary-600">{{ $totalGuests }}</td>
+                            <td class="px-6 py-3 text-success-600">{{ number_format($totalTips, 0, ',', ' ') }} Kč</td>
+                            <td class="px-6 py-3 text-danger-600">{{ number_format($totalDiscount, 0, ',', ' ') }} Kč</td>
+                            <td class="px-6 py-3 text-gray-900 dark:text-white">{{ number_format($totalRevenue, 0, ',', ' ') }} Kč</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         @else

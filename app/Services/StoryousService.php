@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class StoryousService
 {
@@ -152,6 +153,212 @@ class StoryousService
         return Cache::remember($cacheKey, $ttl, function () use ($date) {
             return $this->fetchBillsFromApi($date);
         });
+    }
+
+    /**
+     * Import menu (Categories and Products) from Storyous.
+     *
+     * @return array Stats about imported items
+     */
+    public function importMenu(): array
+    {
+        $token = $this->getAccessToken();
+        if (!$token) {
+            return ['status' => 'error', 'message' => 'No access token'];
+        }
+
+        $sourceId = "{$this->settings->merchant_id}-{$this->settings->place_id}";
+
+        // 1. Fetch Categories
+        $catsResponse = Http::withToken($token)->get("{$this->baseUrl}/stock/{$sourceId}/categories");
+        if (!$catsResponse->successful()) {
+            return ['status' => 'error', 'message' => 'Failed to fetch categories: ' . $catsResponse->status()];
+        }
+        $categoriesData = $catsResponse->json()['data'] ?? $catsResponse->json();
+
+        // 2. Fetch Products
+        $prodsResponse = Http::withToken($token)->get("{$this->baseUrl}/stock/{$sourceId}/products");
+        if (!$prodsResponse->successful()) {
+            return ['status' => 'error', 'message' => 'Failed to fetch products: ' . $prodsResponse->status()];
+        }
+        $productsData = $prodsResponse->json()['data'] ?? $prodsResponse->json();
+
+        $stats = [
+            'categories_created' => 0,
+            'categories_updated' => 0,
+            'products_created' => 0,
+            'products_updated' => 0,
+            'products_renamed_old' => 0,
+        ];
+
+        $categoryMap = [];
+
+        // Process Categories
+        foreach ($categoriesData as $catItem) {
+            $sId = $catItem['_id'] ?? $catItem['categoryId'] ?? null;
+            if (!$sId) continue;
+
+            $name = $catItem['name'] ?? 'Unknown Category';
+
+            $category = \App\Models\Category::where('storyous_id', $sId)->first();
+
+            if ($category) {
+                // Update existing category
+                $category->update(['name' => $name]);
+                $stats['categories_updated']++;
+            } else {
+                // Create new category (hidden)
+                $category = \App\Models\Category::create([
+                    'storyous_id' => $sId,
+                    'name' => $name,
+                    'slug' => Str::slug($name) . '-' . substr(md5($sId), 0, 4),
+                    'type' => 'menu',
+                    'is_visible' => false,
+                ]);
+                $stats['categories_created']++;
+            }
+            $categoryMap[$sId] = $category->id;
+        }
+
+        // Process Products
+        foreach ($productsData as $prodItem) {
+            $sId = $prodItem['_id'] ?? $prodItem['productId'] ?? null;
+            if (!$sId) continue;
+
+            $name = $prodItem['name'] ?? 'Unknown Product';
+            $price = $prodItem['price'] ?? 0;
+            $vat = $prodItem['vatRate'] ?? $prodItem['vat'] ?? 0;
+            $sCatId = $prodItem['categoryId'] ?? null;
+
+            $localCatId = $sCatId && isset($categoryMap[$sCatId]) ? $categoryMap[$sCatId] : null;
+
+            $product = \App\Models\Product::where('storyous_id', $sId)->first();
+
+            if ($product) {
+                // Update existing product
+                $product->update([
+                    'name' => $name,
+                    'price' => $price,
+                    'vat_rate' => $vat,
+                    'category_id' => $localCatId,
+                ]);
+                $stats['products_updated']++;
+            } else {
+                // Check for name conflict with local product (no storyous_id)
+                $existingByName = \App\Models\Product::where('name', $name)->whereNull('storyous_id')->first();
+                if ($existingByName) {
+                    $existingByName->update(['name' => $name . ' - old']);
+                    $stats['products_renamed_old']++;
+                }
+
+                // Create new product
+                \App\Models\Product::create([
+                    'storyous_id' => $sId,
+                    'name' => $name,
+                    'description' => $prodItem['notes'] ?? null,
+                    'price' => $price,
+                    'vat_rate' => $vat,
+                    'category_id' => $localCatId,
+                    'is_available' => false, // Hidden/Unavailable by default until reviewed
+                ]);
+                $stats['products_created']++;
+            }
+        }
+
+        return ['status' => 'success', 'stats' => $stats];
+    }
+
+    /**
+     * Synchronize bills from Storyous for a given period.
+     * Defaults to settings start date -> now.
+     */
+    public function syncBills(?Carbon $fromDate = null): array
+    {
+        $startDateStr = $this->settings->sync_start_date;
+        if (!$startDateStr && !$fromDate) {
+            return ['status' => 'error', 'message' => 'Start date not configured'];
+        }
+
+        $start = $fromDate ? $fromDate->copy() : Carbon::parse($startDateStr);
+        $end = now();
+
+        $stats = ['processed_days' => 0, 'bills_created' => 0, 'bills_updated' => 0, 'errors' => 0];
+
+        // Loop through days
+        for ($date = $start->copy(); $date->lte($end); $date->addDay()) {
+            try {
+                // Fetch bills list (summary)
+                $bills = $this->getBillsForDate($date);
+
+                foreach ($bills as $billData) {
+                    $this->processBillSync($billData, $stats);
+                }
+                $stats['processed_days']++;
+
+            } catch (\Exception $e) {
+                Log::error("Sync error for date {$date->toDateString()}: " . $e->getMessage());
+                $stats['errors']++;
+            }
+        }
+
+        return ['status' => 'success', 'stats' => $stats];
+    }
+
+    protected function processBillSync(array $billData, array &$stats): void
+    {
+        $billId = $billData['billId'] ?? $billData['_id'] ?? null;
+        if (!$billId) return;
+
+        // Fetch full detail to get items
+        $billDetail = $this->getBillDetail($billId);
+        if (!$billDetail) {
+            return;
+        }
+        $fullBillData = $billDetail['data'] ?? $billDetail;
+
+        // Create/Update Bill
+        $bill = \App\Models\Bill::updateOrCreate(
+            ['storyous_bill_id' => $billId],
+            [
+                'bill_number' => $fullBillData['billNumber'] ?? null,
+                'paid_at' => isset($fullBillData['paidAt']) ? Carbon::parse($fullBillData['paidAt']) : now(),
+                'total_amount' => $fullBillData['finalPrice'] ?? $fullBillData['totalAmount'] ?? 0,
+                'currency' => $fullBillData['currency'] ?? 'CZK',
+                'table_number' => $fullBillData['tableNumber'] ?? null,
+                'person_count' => $fullBillData['personCount'] ?? 0,
+                'raw_data' => $fullBillData,
+            ]
+        );
+
+        if ($bill->wasRecentlyCreated) {
+            $stats['bills_created']++;
+        } else {
+            $stats['bills_updated']++;
+        }
+
+        // Process Items: Replace all items to ensure sync
+        $bill->items()->delete();
+
+        $items = $fullBillData['items'] ?? [];
+        foreach ($items as $item) {
+            $prodId = $item['productId'] ?? null;
+            $localProduct = $prodId ? \App\Models\Product::where('storyous_id', $prodId)->first() : null;
+
+            $amount = $item['amount'] ?? 1;
+            $unitPrice = $item['price'] ?? 0;
+            // Assuming price is per unit. If total, logic changes.
+            // Standard POS API: price is usually unit price.
+
+            $bill->items()->create([
+                'product_id' => $localProduct?->id,
+                'storyous_product_id' => $prodId,
+                'name' => $item['name'] ?? 'Unknown',
+                'quantity' => $amount,
+                'price_per_unit' => $unitPrice,
+                'total_price' => $amount * $unitPrice,
+                'vat_rate' => $item['vatRate'] ?? 0,
+            ]);
+        }
     }
 
     /**

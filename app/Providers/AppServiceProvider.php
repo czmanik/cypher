@@ -6,6 +6,9 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Gate; // <--- NOVÉ: Potřeba pro politiky
+use Filament\Support\Facades\FilamentView;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Support\Facades\Blade;
 
 // --- Import Politiky ---
 use App\Policies\ManagerOnlyPolicy;
@@ -78,5 +81,11 @@ class AppServiceProvider extends ServiceProvider
         } catch (\Exception $e) {
             View::share('globalMenu', collect());
         }
+
+        // --- 3. SESSION KEEPER FOR SHIFTS ---
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::BODY_END,
+            fn (): string => Blade::render('@livewire(\'shift-session-keeper\')'),
+        );
     }
 }

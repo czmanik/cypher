@@ -105,6 +105,11 @@ class UserResource extends Resource
                             ->label('Aktivní zaměstnanec')
                             ->default(true)
                             ->helperText('Vypnutím zamezíte přihlášení do systému.'),
+
+                        Toggle::make('keep_logged_in_during_shift')
+                            ->label('Neodhlašovat během směny')
+                            ->helperText('Pokud je uživatel na směně, systém ho automaticky neodhlásí.')
+                            ->default(false),
                     ])->columns(2),
             ]);
     }
@@ -178,7 +183,7 @@ class UserResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            UserResource\RelationManagers\LoginLogsRelationManager::class,
         ];
     }
 

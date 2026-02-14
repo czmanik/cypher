@@ -147,6 +147,10 @@ class CurrentShiftWidget extends Widget implements HasActions, HasForms
                     ->rows(3)
                     ->maxLength(1000);
 
+                $schema[] = Forms\Components\Checkbox::make('should_logout')
+                    ->label('Odhlásit se po ukončení směny')
+                    ->default(false);
+
                 return $schema;
             })
             ->action(function (array $data) {
@@ -183,6 +187,15 @@ class CurrentShiftWidget extends Widget implements HasActions, HasForms
                     ->title('Směna byla ukončena')
                     ->success()
                     ->send();
+
+                if (!empty($data['should_logout'])) {
+                    auth()->logout();
+                    session()->invalidate();
+                    session()->regenerateToken();
+
+                    $this->redirect('/admin/login');
+                    return;
+                }
 
                 $this->redirect(request()->header('Referer'));
             });

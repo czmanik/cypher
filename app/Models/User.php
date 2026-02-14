@@ -8,6 +8,7 @@ use Filament\Panel;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -40,6 +41,7 @@ class User extends Authenticatable implements FilamentUser
         'is_manager',
         'is_admin',
         'employee_type',
+        'keep_logged_in_during_shift',
     ];
 
     /**
@@ -65,8 +67,14 @@ class User extends Authenticatable implements FilamentUser
             'is_active' => 'boolean',
             'is_manager' => 'boolean',
             'is_admin' => 'boolean',
+            'keep_logged_in_during_shift' => 'boolean',
             'hourly_rate' => 'decimal:2',
         ];
+    }
+
+    public function loginLogs(): HasMany
+    {
+        return $this->hasMany(LoginLog::class);
     }
 
     // --- 3. PŘIDÁNA METODA PRO PŘÍSTUP DO ADMINU ---

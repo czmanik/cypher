@@ -156,7 +156,7 @@ class StoryousService
     }
 
     /**
-     * Import menu (Categories and Products) from Storyous.
+     * Import menu (Categories and Products) from Storyous using the Menu Tree endpoint.
      *
      * @return array Stats about imported items
      */
@@ -167,21 +167,25 @@ class StoryousService
             return ['status' => 'error', 'message' => 'No access token'];
         }
 
-        $sourceId = "{$this->settings->merchant_id}-{$this->settings->place_id}";
+        // Use /menu/{merchantId} endpoint to get the full tree
+        $url = "{$this->baseUrl}/menu/{$this->settings->merchant_id}";
 
-        // 1. Fetch Categories
-        $catsResponse = Http::withToken($token)->get("{$this->baseUrl}/stock/{$sourceId}/categories");
-        if (!$catsResponse->successful()) {
-            return ['status' => 'error', 'message' => 'Failed to fetch categories: ' . $catsResponse->status()];
+        // Optionally add placeId if configured
+        if (!empty($this->settings->place_id)) {
+            $url .= "?placeId={$this->settings->place_id}";
         }
-        $categoriesData = $catsResponse->json()['data'] ?? $catsResponse->json();
 
-        // 2. Fetch Products
-        $prodsResponse = Http::withToken($token)->get("{$this->baseUrl}/stock/{$sourceId}/products");
-        if (!$prodsResponse->successful()) {
-            return ['status' => 'error', 'message' => 'Failed to fetch products: ' . $prodsResponse->status()];
+        $response = Http::withToken($token)->get($url);
+
+        if (!$response->successful()) {
+            return ['status' => 'error', 'message' => 'Failed to fetch menu: ' . $response->status()];
         }
-        $productsData = $prodsResponse->json()['data'] ?? $prodsResponse->json();
+
+        $data = $response->json();
+
+        // The root response typically contains an 'items' array which are top-level items
+        // It might be wrapped in 'data' depending on API version, but usually root level for this endpoint.
+        $rootItems = $data['items'] ?? $data['data']['items'] ?? [];
 
         $stats = [
             'categories_created' => 0,
@@ -191,88 +195,102 @@ class StoryousService
             'products_renamed_old' => 0,
         ];
 
-        $categoryMap = [];
-
-        // Process Categories
-        foreach ($categoriesData as $catItem) {
-            $sId = $catItem['_id'] ?? $catItem['categoryId'] ?? null;
-            if (!$sId) continue;
-
-            $name = $catItem['name'] ?? 'Unknown Category';
-
-            $category = \App\Models\Category::where('storyous_id', $sId)->first();
-
-            if ($category) {
-                // Update existing category
-                $category->update(['name' => $name]);
-                $stats['categories_updated']++;
-            } else {
-                // Create new category (hidden)
-                $category = \App\Models\Category::create([
-                    'storyous_id' => $sId,
-                    'name' => $name,
-                    'slug' => Str::slug($name) . '-' . substr(md5($sId), 0, 4),
-                    'type' => 'menu',
-                    'is_visible' => false,
-                ]);
-                $stats['categories_created']++;
-            }
-            $categoryMap[$sId] = $category->id;
-        }
-
-        // Process Products
-        foreach ($productsData as $prodItem) {
-            $sId = $prodItem['_id'] ?? $prodItem['productId'] ?? null;
-            if (!$sId) continue;
-
-            $name = $prodItem['name'] ?? 'Unknown Product';
-            $price = $prodItem['price'] ?? 0;
-            $vat = $prodItem['vatRate'] ?? $prodItem['vat'] ?? 0;
-            $sCatId = $prodItem['categoryId'] ?? null;
-
-            $localCatId = $sCatId && isset($categoryMap[$sCatId]) ? $categoryMap[$sCatId] : null;
-
-            $product = \App\Models\Product::where('storyous_id', $sId)->first();
-
-            if ($product) {
-                // Update existing product
-                $product->update([
-                    'name' => $name,
-                    'price' => $price,
-                    'vat_rate' => $vat,
-                    'category_id' => $localCatId,
-                ]);
-                $stats['products_updated']++;
-            } else {
-                // Check for name conflict with local product (no storyous_id)
-                $existingByName = \App\Models\Product::where('name', $name)->whereNull('storyous_id')->first();
-                if ($existingByName) {
-                    $existingByName->update(['name' => $name . ' - old']);
-                    $stats['products_renamed_old']++;
-                }
-
-                // Create new product
-                \App\Models\Product::create([
-                    'storyous_id' => $sId,
-                    'name' => $name,
-                    'description' => $prodItem['notes'] ?? null,
-                    'price' => $price,
-                    'vat_rate' => $vat,
-                    'category_id' => $localCatId,
-                    'is_available' => false, // Hidden/Unavailable by default until reviewed
-                ]);
-                $stats['products_created']++;
-            }
-        }
+        // Process the tree recursively
+        $this->processMenuItems($rootItems, null, $stats);
 
         return ['status' => 'success', 'stats' => $stats];
+    }
+
+    protected function processMenuItems(array $items, ?int $parentCategoryId, array &$stats): void
+    {
+        foreach ($items as $item) {
+            // Determine if it is a Category or Product
+            if (isset($item['categoryId'])) {
+                // Is Category
+                $sId = $item['categoryId'];
+                $name = $item['name'] ?? 'Unknown Category';
+
+                $category = \App\Models\Category::where('storyous_id', $sId)->first();
+
+                if ($category) {
+                    $category->update(['name' => $name]);
+                    $stats['categories_updated']++;
+                } else {
+                    $category = \App\Models\Category::create([
+                        'storyous_id' => $sId,
+                        'name' => $name,
+                        'slug' => Str::slug($name) . '-' . substr(md5($sId), 0, 4),
+                        'type' => 'menu',
+                        'is_visible' => false, // Hidden by default
+                    ]);
+                    $stats['categories_created']++;
+                }
+
+                // Process nested items for this category
+                if (!empty($item['items'])) {
+                    $this->processMenuItems($item['items'], $category->id, $stats);
+                }
+
+            } elseif (isset($item['productId'])) {
+                // Is Product
+                $sId = $item['productId'];
+                $name = $item['name'] ?? 'Unknown Product';
+
+                // Price logic: Try placeValues -> default level
+                $price = 0;
+                if (isset($item['placeValues']['priceLevels']['default']['price'])) {
+                    $price = $item['placeValues']['priceLevels']['default']['price'];
+                } elseif (isset($item['price'])) {
+                    $price = $item['price'];
+                }
+
+                $vat = $item['placeValues']['vatRate'] ?? $item['vatRate'] ?? 0;
+                // Storyous might send VAT as 0.21, we usually store as 21 or 0.21 depending on DB column.
+                // Migration decimal(5,2) supports 21.00 or 0.21.
+                // Assuming standardized input (if < 1 multiply by 100? Or keep as is?
+                // Let's assume user wants standard storage. If API sends 0.15, and we want 15%, we might need conversion.
+                // However, usually it's best to store as is if unsure.
+                // Let's check existing data or assume 0.21 is correct for calculations.
+
+                $product = \App\Models\Product::where('storyous_id', $sId)->first();
+
+                if ($product) {
+                    // Update existing
+                    $product->update([
+                        'name' => $name,
+                        'price' => $price,
+                        'vat_rate' => $vat,
+                        'category_id' => $parentCategoryId,
+                    ]);
+                    $stats['products_updated']++;
+                } else {
+                    // Check local conflict
+                    $existingByName = \App\Models\Product::where('name', $name)->whereNull('storyous_id')->first();
+                    if ($existingByName) {
+                        $existingByName->update(['name' => $name . ' - old']);
+                        $stats['products_renamed_old']++;
+                    }
+
+                    \App\Models\Product::create([
+                        'storyous_id' => $sId,
+                        'name' => $name,
+                        'description' => $item['description'] ?? null,
+                        'price' => $price,
+                        'vat_rate' => $vat,
+                        'category_id' => $parentCategoryId,
+                        'is_available' => false,
+                    ]);
+                    $stats['products_created']++;
+                }
+            }
+        }
     }
 
     /**
      * Synchronize bills from Storyous for a given period.
      * Defaults to settings start date -> now.
      */
-    public function syncBills(?Carbon $fromDate = null): array
+    public function syncBills(?Carbon $fromDate = null, ?Carbon $toDate = null): array
     {
         $startDateStr = $this->settings->sync_start_date;
         if (!$startDateStr && !$fromDate) {
@@ -280,7 +298,7 @@ class StoryousService
         }
 
         $start = $fromDate ? $fromDate->copy() : Carbon::parse($startDateStr);
-        $end = now();
+        $end = $toDate ? $toDate->copy() : now();
 
         $stats = ['processed_days' => 0, 'bills_created' => 0, 'bills_updated' => 0, 'errors' => 0];
 

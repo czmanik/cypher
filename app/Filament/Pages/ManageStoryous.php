@@ -82,39 +82,10 @@ class ManageStoryous extends SettingsPage
                 ->label('Synchronizovat Účtenky')
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')
-                ->requiresConfirmation()
                 ->modalHeading('Synchronizace účtenek')
-                ->modalDescription('Tato akce může trvat delší dobu v závislosti na zvoleném období.')
-                ->form([
-                    Forms\Components\DatePicker::make('from_date')
-                        ->label('Od data')
-                        ->helperText('Pokud nevyplníte, použije se nastavené datum synchronizace.')
-                        ->maxDate(now()),
-                ])
-                ->action(function (array $data, StoryousService $service) {
-                    $fromDate = $data['from_date'] ? \Carbon\Carbon::parse($data['from_date']) : null;
-
-                    // Increase timeout for this request if possible, or assume it runs fast enough per chunk
-                    set_time_limit(300); // 5 minutes
-
-                    $result = $service->syncBills($fromDate);
-
-                    if (isset($result['status']) && $result['status'] === 'success') {
-                        $stats = $result['stats'];
-                        Notification::make()
-                            ->title('Synchronizace dokončena')
-                            ->body("Zpracováno dní: {$stats['processed_days']}\nÚčtenky nové: {$stats['bills_created']}\nÚčtenky aktualizované: {$stats['bills_updated']}\nChyby: {$stats['errors']}")
-                            ->success()
-                            ->persistent()
-                            ->send();
-                    } else {
-                        Notification::make()
-                            ->title('Chyba synchronizace')
-                            ->body($result['message'] ?? 'Neznámá chyba')
-                            ->danger()
-                            ->send();
-                    }
-                }),
+                ->modalContent(view('livewire.storyous-sync-bills'))
+                ->modalSubmitAction(false) // Disable default footer actions since Livewire handles it
+                ->modalCancelAction(false),
         ];
     }
 

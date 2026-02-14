@@ -1,0 +1,53 @@
+<div class="p-4">
+    <div class="mb-4 space-y-4">
+        <div class="grid grid-cols-2 gap-4">
+            <label class="block">
+                <span class="text-gray-700">Od data</span>
+                <input type="date" wire:model="fromDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500" {{ $isProcessing ? 'disabled' : '' }}>
+            </label>
+            <label class="block">
+                <span class="text-gray-700">Do data</span>
+                <input type="date" wire:model="toDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500" {{ $isProcessing ? 'disabled' : '' }}>
+            </label>
+        </div>
+
+        @if(!$isProcessing && !$isFinished)
+            <button wire:click="startSync" class="px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-500 w-full font-bold">
+                Spustit Synchronizaci
+            </button>
+        @endif
+    </div>
+
+    @if($isProcessing || $isFinished)
+        <div class="space-y-2 border-t pt-4">
+            <div class="flex justify-between font-bold">
+                <span>Zpracováno dní: {{ $stats['processed_days'] }}</span>
+                <span>Chyby: <span class="text-red-600">{{ $stats['errors'] }}</span></span>
+            </div>
+            <div class="flex justify-between text-sm">
+                <span class="text-green-600">Nové účtenky: {{ $stats['bills_created'] }}</span>
+                <span class="text-blue-600">Aktualizované: {{ $stats['bills_updated'] }}</span>
+            </div>
+
+            <div class="mt-4">
+                <div class="text-xs text-gray-500 uppercase font-bold mb-1">Průběh:</div>
+                <div class="bg-gray-100 p-2 rounded h-48 overflow-y-auto font-mono text-xs space-y-1 border">
+                    @foreach($logs as $log)
+                        <div>{{ $log }}</div>
+                    @endforeach
+                </div>
+            </div>
+
+            @if($isProcessing)
+                <!-- Poll every 100ms to process next day -->
+                <div wire:poll.100ms="processNextDay">
+                    <div class="text-center text-primary-600 animate-pulse mt-2">Pracuji... ({{ $currentDate }})</div>
+                </div>
+            @endif
+
+            @if($isFinished)
+                <div class="text-center text-green-600 font-bold text-lg mt-2">HOTOVO</div>
+            @endif
+        </div>
+    @endif
+</div>

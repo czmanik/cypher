@@ -59,8 +59,9 @@
             <div class="mt-12 pt-8 border-t border-gray-200 flex justify-between items-center">
                 <span class="text-gray-500 text-sm font-bold uppercase">Sdílet akci</span>
                 <div class="flex gap-4">
-                   <button class="text-gray-400 hover:text-black">Facebook</button>
-                   <button class="text-gray-400 hover:text-black">Instagram</button>
+                   <a href="https://www.facebook.com/sharer/sharer.php?u={{ urlencode(request()->fullUrl()) }}" target="_blank" class="text-gray-400 hover:text-black transition-colors">Facebook</a>
+                   <a href="https://twitter.com/intent/tweet?url={{ urlencode(request()->fullUrl()) }}&text={{ urlencode($event->title) }}" target="_blank" class="text-gray-400 hover:text-black transition-colors">Twitter</a>
+                   <a href="https://wa.me/?text={{ urlencode($event->title . ' ' . request()->fullUrl()) }}" target="_blank" class="text-gray-400 hover:text-black transition-colors">WhatsApp</a>
                 </div>
             </div>
 

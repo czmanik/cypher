@@ -76,11 +76,43 @@
         </x-slot>
 
         @if(count($soldItems) > 0)
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                @foreach($soldItems as $item)
-                    <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
-                        <span class="font-medium truncate mr-2" title="{{ $item['name'] }}">{{ $item['name'] }}</span>
-                        <span class="font-bold text-primary-600 dark:text-primary-400 whitespace-nowrap">{{ $item['count'] }}x</span>
+            <div class="space-y-4">
+                @foreach($soldItems as $categoryGroup)
+                    <div
+                        x-data="{ open: false }"
+                        class="border rounded-lg overflow-hidden dark:border-gray-700"
+                    >
+                        <!-- Category Header -->
+                        <button
+                            @click="open = !open"
+                            class="w-full flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition"
+                        >
+                            <div class="flex items-center gap-2">
+                                <x-heroicon-o-chevron-down x-show="open" class="w-4 h-4" />
+                                <x-heroicon-o-chevron-right x-show="!open" class="w-4 h-4" />
+                                <span class="font-bold text-lg">{{ $categoryGroup['category_name'] }}</span>
+                            </div>
+                            <div class="text-sm font-semibold text-gray-600 dark:text-gray-300">
+                                {{ number_format($categoryGroup['total_revenue'], 0, ',', ' ') }} Kč
+                            </div>
+                        </button>
+
+                        <!-- Items Grid -->
+                        <div x-show="open" class="p-4 bg-white dark:bg-gray-900 border-t dark:border-gray-700">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                @foreach($categoryGroup['items'] as $item)
+                                    <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-2 rounded border dark:border-gray-700 text-sm">
+                                        <div class="flex flex-col overflow-hidden">
+                                            <span class="font-medium truncate" title="{{ $item['name'] }}">{{ $item['name'] }}</span>
+                                            <span class="text-xs text-gray-500">{{ number_format($item['revenue'], 0, ',', ' ') }} Kč</span>
+                                        </div>
+                                        <span class="font-bold text-primary-600 dark:text-primary-400 whitespace-nowrap ml-2">
+                                            {{ $item['count'] }}x
+                                        </span>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
                     </div>
                 @endforeach
             </div>

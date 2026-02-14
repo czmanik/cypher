@@ -163,17 +163,36 @@ class StoryousStats extends Page
 
         $this->soldItems = \App\Models\BillItem::query()
             ->join('bills', 'bill_items.bill_id', '=', 'bills.id')
+            ->leftJoin('products', 'bill_items.product_id', '=', 'products.id')
+            ->leftJoin('categories', 'products.category_id', '=', 'categories.id')
             ->whereBetween('bills.paid_at', [$startOfDay, $endOfDay])
-            ->selectRaw('bill_items.name, SUM(bill_items.quantity) as total_qty')
-            ->groupBy('bill_items.name')
+            ->selectRaw('
+                COALESCE(categories.name, "Nezařazeno") as category_name,
+                COALESCE(categories.sort_order, 9999) as category_sort,
+                bill_items.name,
+                SUM(bill_items.quantity) as total_qty,
+                SUM(bill_items.total_price) as total_revenue
+            ')
+            ->groupBy('category_name', 'category_sort', 'bill_items.name')
+            ->orderBy('category_sort')
+            ->orderBy('category_name')
             ->orderByDesc('total_qty')
             ->get()
-            ->map(function ($item) {
+            ->groupBy('category_name')
+            ->map(function ($items, $categoryName) {
                 return [
-                    'name' => $item->name,
-                    'count' => (float) $item->total_qty, // Cast to float to remove trailing zeros if int
+                    'category_name' => $categoryName,
+                    'total_revenue' => $items->sum('total_revenue'),
+                    'items' => $items->map(function ($item) {
+                        return [
+                            'name' => $item->name,
+                            'count' => (float) $item->total_qty,
+                            'revenue' => (float) $item->total_revenue,
+                        ];
+                    })->values()->toArray(),
                 ];
             })
+            ->values() // Reset keys to array for easy iteration
             ->toArray();
     }
 }

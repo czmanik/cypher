@@ -25,6 +25,7 @@ class StoryousStats extends Page
     public $totalGuests = 0;
     public $bills = [];
     public $selectedBill = null;
+    public $soldItems = [];
 
     public function mount()
     {
@@ -143,5 +144,36 @@ class StoryousStats extends Page
         $this->totalGuests = collect($this->bills)->sum(function ($bill) {
             return (int)($bill['personCount'] ?? 0);
         });
+
+        // --- NEW: Sync Bills to DB & Calculate Summary ---
+
+        // 1. Sync bills to database (if they don't exist)
+        // We use a dummy stats array
+        $stats = ['processed_days' => 0, 'bills_created' => 0, 'bills_updated' => 0, 'errors' => 0];
+        foreach ($this->bills as $billData) {
+            $service->processBillSync($billData, $stats);
+        }
+
+        // 2. Load sold items summary from the database (sourced from BillItems)
+        // We query the local DB for items belonging to bills of this date
+        // This ensures we show exactly what is stored, including historical data.
+
+        $startOfDay = $date->copy()->startOfDay();
+        $endOfDay = $date->copy()->endOfDay();
+
+        $this->soldItems = \App\Models\BillItem::query()
+            ->join('bills', 'bill_items.bill_id', '=', 'bills.id')
+            ->whereBetween('bills.paid_at', [$startOfDay, $endOfDay])
+            ->selectRaw('bill_items.name, SUM(bill_items.quantity) as total_qty')
+            ->groupBy('bill_items.name')
+            ->orderByDesc('total_qty')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'name' => $item->name,
+                    'count' => (float) $item->total_qty, // Cast to float to remove trailing zeros if int
+                ];
+            })
+            ->toArray();
     }
 }

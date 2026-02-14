@@ -322,41 +322,47 @@ class StoryousService
         return ['status' => 'success', 'stats' => $stats];
     }
 
-    protected function processBillSync(array $billData, array &$stats): void
+    /**
+     * Process a single bill synchronization.
+     * By default, this method now PRESERVES existing bills (no overwrite).
+     * To force update, one would need to delete them first or change logic.
+     * Currently strictly follows "if exists, do nothing".
+     */
+    public function processBillSync(array $billData, array &$stats): void
     {
         $billId = $billData['billId'] ?? $billData['_id'] ?? null;
         if (!$billId) return;
 
-        // Fetch full detail to get items
+        // Check if bill exists
+        $existingBill = \App\Models\Bill::where('storyous_bill_id', $billId)->exists();
+
+        if ($existingBill) {
+            // Do not overwrite
+            return;
+        }
+
+        // Fetch full detail to get items ONLY if we are creating new
         $billDetail = $this->getBillDetail($billId);
         if (!$billDetail) {
             return;
         }
         $fullBillData = $billDetail['data'] ?? $billDetail;
 
-        // Create/Update Bill
-        $bill = \App\Models\Bill::updateOrCreate(
-            ['storyous_bill_id' => $billId],
-            [
-                'bill_number' => $fullBillData['billNumber'] ?? null,
-                'paid_at' => isset($fullBillData['paidAt']) ? Carbon::parse($fullBillData['paidAt']) : now(),
-                'total_amount' => $fullBillData['finalPrice'] ?? $fullBillData['totalAmount'] ?? 0,
-                'currency' => $fullBillData['currency'] ?? 'CZK',
-                'table_number' => $fullBillData['tableNumber'] ?? null,
-                'person_count' => $fullBillData['personCount'] ?? 0,
-                'raw_data' => $fullBillData,
-            ]
-        );
+        // Create Bill
+        $bill = \App\Models\Bill::create([
+            'storyous_bill_id' => $billId,
+            'bill_number' => $fullBillData['billNumber'] ?? null,
+            'paid_at' => isset($fullBillData['paidAt']) ? Carbon::parse($fullBillData['paidAt']) : now(),
+            'total_amount' => $fullBillData['finalPrice'] ?? $fullBillData['totalAmount'] ?? 0,
+            'currency' => $fullBillData['currency'] ?? 'CZK',
+            'table_number' => $fullBillData['tableNumber'] ?? null,
+            'person_count' => $fullBillData['personCount'] ?? 0,
+            'raw_data' => $fullBillData,
+        ]);
 
-        if ($bill->wasRecentlyCreated) {
-            $stats['bills_created']++;
-        } else {
-            $stats['bills_updated']++;
-        }
+        $stats['bills_created']++;
 
-        // Process Items: Replace all items to ensure sync
-        $bill->items()->delete();
-
+        // Process Items
         $items = $fullBillData['items'] ?? [];
         foreach ($items as $item) {
             $prodId = $item['productId'] ?? null;
@@ -364,8 +370,6 @@ class StoryousService
 
             $amount = $item['amount'] ?? 1;
             $unitPrice = $item['price'] ?? 0;
-            // Assuming price is per unit. If total, logic changes.
-            // Standard POS API: price is usually unit price.
 
             $bill->items()->create([
                 'product_id' => $localProduct?->id,

@@ -69,6 +69,26 @@
         </x-filament::section>
     </div>
 
+    <!-- Sold Items Summary -->
+    <x-filament::section class="mb-4">
+        <x-slot name="heading">
+            Přehled prodaných položek
+        </x-slot>
+
+        @if(count($soldItems) > 0)
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                @foreach($soldItems as $item)
+                    <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-2 rounded border dark:border-gray-700">
+                        <span class="font-medium truncate mr-2" title="{{ $item['name'] }}">{{ $item['name'] }}</span>
+                        <span class="font-bold text-primary-600 dark:text-primary-400 whitespace-nowrap">{{ $item['count'] }}x</span>
+                    </div>
+                @endforeach
+            </div>
+        @else
+            <div class="text-gray-500 italic">Žádné položky k zobrazení.</div>
+        @endif
+    </x-filament::section>
+
     <!-- Simple Table for Data -->
     <x-filament::section>
         <x-slot name="heading">

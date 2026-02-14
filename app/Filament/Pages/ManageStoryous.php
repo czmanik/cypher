@@ -83,7 +83,7 @@ class ManageStoryous extends SettingsPage
                 ->icon('heroicon-o-arrow-path')
                 ->color('warning')
                 ->modalHeading('Synchronizace účtenek')
-                ->modalContent(view('livewire.storyous-sync-bills'))
+                ->modalContent(view('filament.pages.storyous-sync-modal'))
                 ->modalSubmitAction(false) // Disable default footer actions since Livewire handles it
                 ->modalCancelAction(false),
         ];

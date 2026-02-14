@@ -7,7 +7,7 @@ use Carbon\Carbon;
 use Filament\Notifications\Notification;
 use Livewire\Component;
 
-class StoryousSyncBills extends Component
+class SyncBills extends Component
 {
     public $fromDate;
     public $toDate;
@@ -92,6 +92,6 @@ class StoryousSyncBills extends Component
 
     public function render()
     {
-        return view('livewire.storyous-sync-bills');
+        return view('livewire.sync-bills');
     }
 }

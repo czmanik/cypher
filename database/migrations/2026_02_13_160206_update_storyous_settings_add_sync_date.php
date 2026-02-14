@@ -16,20 +16,17 @@ return new class extends Migration
         if ($setting) {
             $payload = json_decode($setting->payload, true);
 
-            // Handle double-encoded JSON (which sometimes happens if saved incorrectly before)
-            // Or if json_decode returns a string for some other reason.
             if (is_string($payload)) {
                 $payload = json_decode($payload, true);
             }
 
-            // If decoding failed completely or result is still not an array (e.g. null, boolean, int)
             if (!is_array($payload)) {
                 $payload = [];
             }
 
             // Add the missing key if it doesn't exist
             if (!array_key_exists('sync_start_date', $payload)) {
-                $payload['sync_start_date'] = null; // Default value
+                $payload['sync_start_date'] = '2026-01-01'; // Default value per user request
 
                 DB::table('settings')
                     ->where('id', $setting->id)
@@ -46,7 +43,7 @@ return new class extends Migration
                     'client_secret' => null,
                     'merchant_id' => null,
                     'place_id' => null,
-                    'sync_start_date' => null
+                    'sync_start_date' => '2026-01-01'
                 ]),
                 'created_at' => now(),
                 'updated_at' => now(),

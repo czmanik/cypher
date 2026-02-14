@@ -129,6 +129,8 @@ class StoryousStats extends Page
 
     public function loadDataForDate(Carbon $date)
     {
+        $this->dispatch('storyous-date-updated', date: $date->format('Y-m-d'));
+
         /** @var StoryousService $service */
         $service = app(StoryousService::class);
 

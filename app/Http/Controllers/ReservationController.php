@@ -3,6 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Reservation;
+use App\Models\WorkShift;
+use App\Models\User;
+use Filament\Notifications\Notification;
+use Filament\Notifications\Actions\Action;
 use Illuminate\Http\Request;
 
 class ReservationController extends Controller
@@ -31,7 +35,7 @@ class ReservationController extends Controller
         $reservationTime = $validated['date'] . ' ' . $validated['time'];
 
         // 3. Uložení do databáze
-        Reservation::create([
+        $reservation = Reservation::create([
             'customer_name' => $validated['name'],
             'customer_email' => $validated['email'],
             'customer_phone' => $validated['phone'],
@@ -41,6 +45,27 @@ class ReservationController extends Controller
             'status' => 'pending', // Výchozí stav: Čeká na potvrzení
             'table_id' => null,    // Stůl zatím není přidělen
         ]);
+
+        // Notifikace pro personál
+        $activeUserIds = WorkShift::whereNull('end_at')->pluck('user_id');
+        $recipients = $activeUserIds->isNotEmpty()
+            ? User::whereIn('id', $activeUserIds)->get()
+            : User::where('is_manager', true)->get();
+
+        if ($recipients->isNotEmpty()) {
+            Notification::make()
+                ->title('Nová rezervace!')
+                ->body("{$reservation->customer_name} ({$reservation->guests_count} os.) na " . $reservation->reservation_time->format('d.m. H:i'))
+                ->danger()
+                ->persistent()
+                ->actions([
+                    Action::make('view')
+                        ->button()
+                        ->url(route('filament.admin.resources.reservations.index'))
+                        ->label('Zobrazit'),
+                ])
+                ->sendToDatabase($recipients);
+        }
 
         // 4. Přesměrování s hláškou
         return redirect()->route('home')->with('success', 'Rezervace byla odeslána! Potvrdíme ji SMSkou nebo e-mailem.');
